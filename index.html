@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body {
+            font-family: Inter;
+            background-color: #e9ecef;
+            margin: 0;
+        }
+        .page {
+            margin: 0 auto;
+            padding: 0;
+        }
+        header {
+            max-width: 1000px;
+            text-align: center;
+            margin: 0 auto;
+        }
+        p {
+            margin: 0;
+        }
+        .btn {
+            margin-top: 50px;
+            background-color: #e9ecef;
+            color: #0c24bc;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 2px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #fab04b;
+            transform: scale(1.025);
+        }
+        .title {
+            color: #f8fafc;
+            font-size: 72px;
+            font-weight: 100;
+            letter-spacing: 0px;
+            line-height: 1;
+        }
+        .subtitle {
+            color: #ffa11d;
+            font-size: 24px;
+            margin-top: 32px;
+            /*color: #e9ecef;*/
+            font-weight: 100;
+        }
+        .name {
+            color: #ffa11d;
+            flex: auto;
+            text-align: left;
+            font-size: 48px;
+            font-weight: 100;
+            padding: 10px 20px;
+        }
+        .network-img {
+            position: absolute;
+            right: 60px;
+            bottom: -140px;
+            width: 500px;
+        }
+        .hero {
+            position: relative;
+            /*background: linear-gradient(150deg, #0c24bc, #070b87);*/
+            background: radial-gradient(circle at top left, #1d4ed8 0%, #0c24bc 35%, #070b87 100%);
+            padding: 0 0 70px;
+            text-align: center;
+        }
+        hr {
+            border: none;
+            height: 2px;
+            margin-top: 120px;
+            background-color: #0833e1;
+        }
+        .blockHeader {
+            font-size: 48px;
+            margin-top: 25px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        td {
+            padding: 10px;
+            border-bottom: solid 1px #ddd;
+        }
+        form {
+            margin-left: 150px;
+            margin-right: 150px;
+        }
+        footer {
+            margin-top: 100px;
+            margin-left: 50px;
+            margin-bottom: 20px;
+        }
+    </style>
+    <meta charset="UTF-8">
+    <title>Mesh</title>
+</head>
+<body>
+<div class="page">
+    <div class="hero">
+        <div class="name">Mesh</div>
+<!--        <hr>-->
+        <header>
+            <div class="title">A new and constantly improving blockchain</div>
+            <div class="subtitle">
+                Mesh is a real blockchain system in development which is mainly built in python,
+                based on Bitcoin’s original decentralised design. It is a peer-to-peer network
+                with validated transactions and proof-of-work mining.
+            </div>
+            <button class="btn" onclick="downloadNode()"><b>Download</b></button>
+        </header>
+<!--        <img class="network-img" src="network.jpeg">-->
+    </div>
+    <main>
+        <form>
+            <p class="blockHeader">Mempool (Pending Transactions):</p>
+            <table id="mempoolTable"></table>
+            <hr>
+            <p id="blockText" style="font-size: 48px; margin-top: 50px"></p>
+            <table id="blockTable"></table>
+            <p style="font-size: 32px; margin-top: 50px">All Transactions in Block:</p>
+            <table id="txsTable" class="txsTable"></table>
+        </form>
+    </main>
+
+    <footer>
+        <p>© Mesh 2026, Why not just copyright everything?</p>
+    </footer>
+    <script>
+        const url = "https://roman-expanding-alias-talent.trycloudflare.com/"
+        let id = -1
+        function downloadNode(){
+            window.location.href = "/mesh.zip"
+        }
+        async function newId(){
+            id = Math.round(Math.random()*2147483648 - 2147483649)
+        }
+        async function requestRandNode(message) {
+            let response = await fetch(url + "allIds")
+            let data = await response.json()
+            let ids = data.ids.filter(x => x !== id)
+            let randId = ids[Math.floor(Math.random() * ids.length)]
+            await fetch(url + "sendMessage", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    toId: randId,
+                    fromId: id,
+                    message: message
+                })
+            });
+            response = await fetch(url + `nextMessage?id=${id}&timeout=3.5`)
+            data = await response.json()
+            if (data.rowId >= 0) {
+                await fetch(url + "deleteMessageRow", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({rowId: data.rowId})
+                })
+            }
+            return data
+        }
+
+        async function mainFetch() {
+            await newId()
+            let blockText = document.getElementById("blockText")
+            let blockTable = document.getElementById("blockTable")
+            let txsTable = document.getElementById("txsTable")
+            let mempoolTable = document.getElementById("mempoolTable")
+
+            let response = await requestRandNode("getBlockCount")
+            if (response.message === "noResponse"|| response.message === "") {return await mainFetch()}
+            let blockCount1 = Number(response.message.split(":")[2])
+            response = await requestRandNode("getMempool")
+            if (response.message === "noResponse"|| response.message === "") {return await mainFetch()}
+            let mempool = response.message.slice(15, response.message.length-2)
+            if (mempool !== "") {
+                mempool = mempool.split(",")
+                mempoolTable.innerHTML = `
+                <tr>
+                    <td><b>From</b></td>
+                    <td><b>To</b></td>
+                    <td><b>Amount</b></td>
+                </tr>
+            `
+                mempool.forEach(mem => {
+                    if (!mem.startsWith("MSG")){
+                        let [addressFrom, addressTo, amount, _] = mem.split("|")
+                        mempoolTable.innerHTML += `
+                    <tr>
+                        <td>${addressFrom}</td>
+                        <td>${addressTo}</td>
+                        <td>${(Number(amount) / 1000).toFixed(3)}</td>
+                    </tr>
+                `
+                    }
+                })
+            }
+            else {
+                mempoolTable.innerHTML = `Current mempool is empty`
+            }
+
+            response = await requestRandNode("getDifficulty")
+            if (response.message === "noResponse"|| response.message === "") {return await mainFetch()}
+            let difficulty = Number(response.message.split(":")[2])
+            response = await requestRandNode("getLastBlocks:1")
+            if (response.message === "noResponse"|| response.message === "") {return await mainFetch()}
+            let lastBlock = response.message
+            lastBlock = lastBlock.slice(18, lastBlock.length-5).replaceAll("[", "").replaceAll("'", "")
+            let [header, ...txs] = lastBlock.split(",")
+            let [prevHash, merkleRoot, ts, nonce] = header.split("|")
+            let minerTx = txs[0]
+            let [addressFrom, addressTo, amount, _] = minerTx.split("|")
+            txs = txs.slice(1)
+
+            response = await requestRandNode("getBlockCount")
+            if (response.message === "noResponse"|| response.message === "") {return await mainFetch()}
+            let blockCount2 = Number(response.message.split(":")[2])
+            if (blockCount1 === blockCount2) {
+                blockText.innerText = `Latest Block ${blockCount1}:`
+                blockTable.innerHTML = `
+                    <tr>
+                        <td>Block creation date</td>
+                        <td>${new Date(Number(ts)*1000)}</td>
+                    </tr>
+                    <tr>
+                        <td>Block difficulty</td>
+                        <td>${Number(difficulty).toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                        <td>Previous hash</td>
+                        <td>${prevHash}</td>
+                    </tr>
+                    <tr>
+                        <td>Merkle root</td>
+                        <td>${merkleRoot}</td>
+                    </tr>
+                `
+                txsTable.innerHTML = `
+                    <tr>
+                        <td><b>From</b></td>
+                        <td><b>To</b></td>
+                        <td><b>Amount</b></td>
+                    </tr>
+                    <tr>
+                        <td>Reward from hashing block</td>
+                        <td>${addressTo}</td>
+                        <td>${(Number(amount) / 1000).toFixed(3)}</td>
+                    </tr>
+                `
+                txs.forEach(tx => {
+                    if (!tx.startsWith("MSG")){
+                        [addressFrom, addressTo, amount, _] = tx.split("|")
+                        txsTable.innerHTML += `
+                            <tr>
+                                <td>${addressFrom}</td>
+                                <td>${addressTo}</td>
+                                <td>${(Number(amount) / 1000).toFixed(3)}</td>
+                            </tr>
+                        `
+                    }
+                })
+            }
+            else {await mainFetch()}
+        }
+        async function init(){
+            while (true){
+                await mainFetch()
+                await new Promise(resolve => setTimeout(resolve, 15_000))
+            }
+        }
+        init()
+    </script>
+</div>
+</body>
+</html>
