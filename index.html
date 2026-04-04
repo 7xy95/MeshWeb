@@ -202,9 +202,7 @@
                     }
                 })
             }
-            else {
-                mempoolTable.innerHTML = `Current mempool is empty`
-            }
+            else {mempoolTable.innerHTML = `Current mempool is empty`}
 
             response = await requestRandNode("getDifficulty")
             if (response.message === "noResponse"|| response.message === "") {return await mainFetch()}
