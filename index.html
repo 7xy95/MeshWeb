@@ -51,7 +51,6 @@
         }
         .name {
             color: #ffa11d;
-            flex: auto;
             text-align: left;
             font-size: 48px;
             font-weight: 100;
@@ -79,6 +78,7 @@
         .blockHeader {
             font-size: 48px;
             margin-top: 25px;
+            margin-left: -50px;
         }
         table {
             width: 100%;
@@ -89,13 +89,36 @@
             border-bottom: solid 1px #ddd;
         }
         form {
-            margin-left: 150px;
+            margin-left: 200px;
             margin-right: 150px;
         }
         footer {
             margin-top: 100px;
             margin-left: 50px;
             margin-bottom: 20px;
+        }
+        .topBar {
+            display: flex;
+            justify-content: left;
+            align-items: center;
+            /*padding: 24px 12px;*/
+        }
+        .navLinks {
+            margin-top: 17px;
+        }
+        .navLinks a {
+            opacity: 0.8;
+            color: #f8fafc;
+            font-size: 24px;
+            margin-left: 16px;
+            text-decoration: none;
+        }
+        .navLinks a:hover {
+            opacity: 1;
+        }
+        .navLinks a.active {
+            opacity: 1;
+            font-weight: bold;
         }
     </style>
     <meta charset="UTF-8">
@@ -104,7 +127,13 @@
 <body>
 <div class="page">
     <div class="hero">
-        <div class="name">Mesh</div>
+        <div class="topBar">
+            <div class="name">Mesh</div>
+<!--            <div class="navLinks">-->
+<!--                <a href="/" class="active">Home</a>-->
+<!--                <a href="/explorer">Explorer</a>-->
+<!--            </div>-->
+        </div>
 <!--        <hr>-->
         <header>
             <div class="title">A new and constantly improving blockchain</div>
@@ -121,8 +150,8 @@
         <form>
             <p class="blockHeader">Mempool (Pending Transactions):</p>
             <table id="mempoolTable"></table>
-            <hr>
-            <p id="blockText" style="font-size: 48px; margin-top: 50px"></p>
+<!--            <hr>-->
+            <p id="blockText" style="font-size: 48px; margin-top: 50px; margin-left: -50px"></p>
             <table id="blockTable"></table>
             <p style="font-size: 32px; margin-top: 50px">All Transactions in Block:</p>
             <table id="txsTable" class="txsTable"></table>
