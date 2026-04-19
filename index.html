@@ -138,11 +138,11 @@
         <header>
             <div class="title">A new and constantly improving blockchain</div>
             <div class="subtitle">
-                Mesh is a real blockchain system in development which is mainly built in python,
-                based on Bitcoin’s original decentralised design. It is a peer-to-peer network
-                with validated transactions and proof-of-work mining.
+                Mesh is a blockchain system in development, available in python and as an app.
+                It is based on Bitcoin’s original decentralised design with adjustments
             </div>
-            <button class="btn" onclick="downloadNode()"><b>Download</b></button>
+            <button class="btn" onclick="downloadNode()"><b>Download Python Version</b></button>
+            <button class="btn" onclick="downloadNodeApp()"><b>Download App (Mac)</b></button>
         </header>
 <!--        <img class="network-img" src="network.jpeg">-->
     </div>
@@ -166,6 +166,9 @@
         let id = -1
         function downloadNode(){
             window.location.href = "/mesh.zip"
+        }
+        function downloadNodeApp(){
+            window.location.href="https://github.com/7xy95/MeshApp/releases/tag/v1.0.0"
         }
         async function newId(){
             id = Math.round(Math.random()*2147483648 - 2147483649)
