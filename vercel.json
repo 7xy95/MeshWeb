@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://ban-watching-lenders-telecommunications.trycloudflare.com/:path*"
+    }
+  ]
+}
