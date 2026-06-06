@@ -1,4 +1,15 @@
 {
+  "headers": [
+    {
+      "source": "/url",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/api/:path*",
