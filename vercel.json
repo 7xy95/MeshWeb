@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://heart-talk-obituaries-landing.trycloudflare.com/:path*"
+      "destination": "https://conducted-wiley-oclc-earnings.trycloudflare.com/:path*"
     }
   ]
 }
