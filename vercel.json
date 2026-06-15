@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://simple-hart-leather-consistency.trycloudflare.com/:path*"
+      "destination": "https://heart-talk-obituaries-landing.trycloudflare.com/:path*"
     }
   ]
 }
