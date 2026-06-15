@@ -33,7 +33,7 @@
             transition: 0.2s;
         }
         .btn:hover {
-            background-color: #fab04b;
+            background-color: #ffce04;
             transform: scale(1.025);
         }
         .title {
@@ -44,14 +44,14 @@
             line-height: 1;
         }
         .subtitle {
-            color: #ffa11d;
+            color: #ffce04;
             font-size: 24px;
             margin-top: 32px;
             /*color: #e9ecef;*/
             font-weight: 100;
         }
         .name {
-            color: #ffa11d;
+            color: #ffce04;
             text-align: left;
             font-size: 48px;
             font-weight: 100;
@@ -124,16 +124,161 @@
             in Python, however later was re-written in JavaScript as an app due
             to Python not being accessible to everyone.
         </p>
+        <p class="infoTitle" style="margin-top: 150px">Network Stats.</p>
+        <p class="infoText" id="stats">
+            Loading...
+        </p>
     </main>
 
     <footer>
-        <p>© Mesh 2026, Why not just copyright everything?</p>
+        <p>©Mesh 2026, Why not just copyright everything?</p>
     </footer>
     <script>
-        const url = "https://roman-expanding-alias-talent.trycloudflare.com/"
+        let url = ""
+        let id = Math.floor(Math.random()*-10_000_000_000)
+
+        async function updateURL() {
+            // while (true) {
+            //     try {
+            //         let html = await (await fetch("https://meshmain.vercel.app/url")).text()
+            //         url = new DOMParser().parseFromString(html, "text/html").body.textContent.trim() + "/"
+            //         return
+            //     }
+            //     catch (error) {}
+            // }
+            url = "https://ban-watching-lenders-telecommunications.trycloudflare.com/"
+        }
+        async function send(message, nodeId) {
+            try {
+                await fetch(url + "sendMessage", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        toId: nodeId,
+                        fromId: id,
+                        message: message
+                    })
+                })
+            }
+            catch (error) {console.log(error)}
+        }
+        async function deleteMsg(rowId) {
+            try {
+                await fetch(url + "deleteMessageRow", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({rowId: rowId})
+                })
+            }
+            catch (error) {console.log(error)}
+        }
+        async function read(timeout=5) {
+            const controller = new AbortController()
+            const timer = setTimeout(() => {controller.abort()}, timeout*3000)
+            try {
+                let response = await fetch(url + `nextMessage?id=${id}&timeout=${timeout}`, {signal: controller.signal})
+                response = await response.json()
+                return [response.message, response.senderId, response.rowId, true]
+            }
+            catch (error) {console.log(error); return ["noResponse", -1, null, false]}
+            finally {clearTimeout(timer)}
+        }
+        async function getIds() {
+            while (true) {
+                try {
+                    let response = await fetch(url + "allIds")
+                    let data = await response.json()
+                    return data.ids
+                }
+                catch (error) {console.log(error)}
+            }
+        }
+
+        function format(number, hashrateUnits=true) {
+            let units = []
+            if (hashrateUnits) {
+                units = [
+                    [" PH", 1_000_000_000_000_000],
+                    [" TH", 1_000_000_000_000],
+                    [" GH", 1_000_000_000],
+                    [" MH", 1_000_000],
+                    [" KH", 1_000]
+                ]
+            }
+            else {
+                units = [
+                    ["Q", 1_000_000_000_000_000],
+                    ["T", 1_000_000_000_000],
+                    ["B", 1_000_000_000],
+                    ["M", 1_000_000],
+                    ["K", 1_000]
+                ]
+            }
+            for (let [suffix, amount] of units) {
+                if (number >= amount) {return (number/amount).toFixed(2) + suffix}
+            }
+            return number
+        }
+        function getBlockReward(blockIndex) {
+            if (blockIndex < 5_000) return 10000
+            if (blockIndex < 15_000) return 5000
+            if (blockIndex < 35_000) return 2500
+            if (blockIndex < 75_000) return 1250
+            if (blockIndex < 155_000) return 625
+            if (blockIndex < 315_000) return 313
+            if (blockIndex < 635_000) return 156
+            if (blockIndex < 1_275_000) return 78
+            if (blockIndex < 2_555_000) return 39
+            if (blockIndex < 5_115_000) return 20
+            if (blockIndex < 10_235_000) return 10
+            if (blockIndex < 20_475_000) return 5
+            if (blockIndex < 40_955_000) return 2
+            else return 1
+        }
         function downloadNodeApp(){
             window.location.href="https://github.com/7xy95/MeshApp/releases"
         }
+        async function setStats() {
+            let ids = await getIds()
+            let idPicked = ids[Math.floor(Math.random()*ids.length)]
+            void send("getBlockCount", idPicked)
+            await send("getDifficulty", idPicked)
+            let bCount = null; let difficulty = null
+            let attempts = -1
+            while ((bCount === null || difficulty === null) && attempts < 5) {
+                let message = ""; let senderId = 0; let rowId = null;
+                try {
+                    [message, senderId, rowId] = await read(2.5)
+                    attempts++
+                    if (message.startsWith("r:getBlockCount:")) {
+                        message = message.slice(16)
+                        bCount = message
+                    }
+                    else if (message.startsWith("r:getDifficulty:")) {
+                        message = message.slice(16)
+                        difficulty = message
+                    }
+                    if (attempts === 4) {void setStats()}
+                }
+                catch (error) {console.log(error)}
+                finally {
+                    if (rowId !== null && rowId !== undefined){
+                        await deleteMsg(rowId)
+                    }
+                }
+            }
+            if (attempts >= 5) {return}
+            document.getElementById("stats").innerHTML = `
+                Block Count: ${bCount}<br>
+                Difficulty: ${format(2**(256-Math.log2(difficulty)))}<br>
+                Block Reward: ${(getBlockReward(bCount)/1000).toFixed(3)}<br>
+            `
+        } //format(2**(256-difficulty))
+        updateURL()
+        void setStats()
+        setInterval(async () => {
+            void setStats()
+        }, 60000)
     </script>
 </div>
 </body>
