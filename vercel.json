@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://fall-wires-farmer-recognized.trycloudflare.com/:path*"
+      "destination": "https://simple-hart-leather-consistency.trycloudflare.com/:path*"
     }
   ]
 }
