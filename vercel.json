@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://conducted-wiley-oclc-earnings.trycloudflare.com/:path*"
+      "destination": "https://queens-conscious-province-relax.trycloudflare.com/:path*"
     }
   ]
 }
