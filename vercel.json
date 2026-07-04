@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "https://queens-conscious-province-relax.trycloudflare.com/:path*"
-    }
-  ]
-}
