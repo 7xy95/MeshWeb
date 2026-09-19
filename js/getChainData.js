@@ -1,0 +1,187 @@
+function getNextNonce(address) {
+    let nonce = 0
+    let [from, n] = ["", ""]
+    for (let block of blocks) {
+        let index = block.indexOf(",")
+        let txs = block.slice(index+1)
+        txs = split_(txs)
+        for (let tx of txs) {
+            if (!tx.startsWith("SYSTEM|")) {
+                if (tx.startsWith("MSG|")) {[, from, , ,n] = tx.split("||")[0].split("|")}
+                else {[from, , ,n] = tx.split("||")[0].split("|")}
+                if (from === address) {nonce = Math.max(nonce, Number(n))}
+            }
+        }
+    }
+    for (let tx of mempool) {
+        if (tx.startsWith("SYSTEM|")) {continue}
+        if (tx.startsWith("MSG|")) {[, from, , ,n] = tx.split("||")[0].split("|")}
+        else {[from, , ,n] = tx.split("||")[0].split("|")}
+        if (from === address) {nonce = Math.max(nonce, Number(n))}
+    }
+    return nonce + 1
+}
+function getMinerRewards(txs) {
+    let total = 0
+    for (let tx of txs) {
+        if (tx.startsWith("MSG|") || tx.startsWith("SYSTEM|")) {continue}
+        let [, , amount, , fee] = tx.split("||")[0].split("|")
+        amount = Number(amount)
+        if (fee === undefined) {
+            total += getFee(amount)
+        }
+        else {
+            total += 1 + Number(fee)
+        }
+    }
+    return total
+}
+function getSpendableBalance(address, ignoreTx="") {
+    let fee = undefined
+    let vBalance = balancesCache[address] || 0
+    for (let tx of mempool) {
+        if (tx === ignoreTx) {continue}
+        let from = ""; let amount = 0
+        tx = tx.split("||")[0]
+        if (tx.startsWith("MSG|")) {[, from, , amount, ,] = tx.split("|")}
+        else {[from, , amount, , fee] = tx.split("|")}
+        amount = Number(amount)
+        if (from === address) {
+            if (blocks.length > FEE_CHANGE_H) {
+                vBalance -= amount + 1 + Number(fee)
+            }
+            else {
+                vBalance -= amount
+            }
+        }
+    }
+    return vBalance
+}
+function getBalance(address) {
+    let vBalance = balancesCache[address] || 0
+    let balance = vBalance
+    for (let tx of mempool) {
+        tx = tx.split("||")[0]
+        if (tx.startsWith("MSG|")) {
+            let [, from, , amount, ,] = tx.split("|")
+            if (from === address) {balance -= Number(amount)}
+            continue
+        }
+        let [from, to, amount, , fee] = tx.split("|")
+        amount = Number(amount)
+        if (from === address) {
+            if (blocks.length > FEE_CHANGE_H) {
+                balance -= amount + 1 + Number(fee)
+            }
+            else {
+                balance -= amount
+            }
+        }
+        if (to === address) {
+            if (blocks.length > FEE_CHANGE_H) {
+                balance += amount
+            }
+            else {
+                balance += amount - getFee(amount)
+            }
+        }
+    }
+    return [vBalance, balance]
+}
+function getDifficultyFromTs(prevTs, nextTs) {
+    const TARGET = 300
+    let gap = nextTs - prevTs
+    let diff = (gap-TARGET)/TARGET
+    diff = Math.max(Math.min(diff, 0.3), -0.3)
+    return Math.round(diff*100)/100
+}
+function getDifficultyFromTs2(prevTs, nextTs) {
+    const TARGET = 300
+    let avg = (nextTs - prevTs)/5
+    let diff = (avg-TARGET)/TARGET
+    diff = Math.max(Math.min(diff, 0.3), -0.3)
+    return Math.round(diff*100)/100
+}
+function getDifficultyFromTs3(prevTs, nextTs) {
+    const TARGET = 300
+    let avg = (nextTs - prevTs)/25
+    let diff = Math.log2(avg/TARGET)
+    diff = Math.max(Math.min(diff, 0.5), -0.5)
+    return Math.round(diff*100)/100
+}
+function getDifficultyFromTs4(prevTs, nextTs, window=10, accurate=false) {
+    const TARGET = 300
+    let avg = (nextTs - prevTs)/window
+    let diff = Math.log2(avg/TARGET)
+    let diff_ = Math.max(Math.min(diff, 1), -1)
+    if (Math.abs(diff_) === 1) {diff_ += (diff - diff_)/4}
+    if (!accurate) {return Math.round(diff_*100)/100}
+    return diff_
+}
+function getDifficulty(blockIndex) {
+    const bits = getDifficultyBits(blockIndex)
+    const int = Math.floor(bits)
+    const frac = bits - int
+    const precision = 52
+    const scaled = BigInt(Math.floor(Math.pow(2, frac) * Math.pow(2, precision)))
+
+    return scaled << BigInt(int - precision);
+}
+function getTs(block) {
+    let header = block.split(",")[0]
+    return Number(header.split("|")[2])
+}
+function getDifficultyBits(blockIndex) {
+    if (difficultyCache[blockIndex] !== undefined) {return difficultyCache[blockIndex]}
+    for (let i=difficultyCache.length; i<=blockIndex; i++) {
+        if (i === 1) {difficultyCache[1] = 230; continue}
+        const j = i-1
+        let change = 0
+        if (j <= 155) {change = getDifficultyFromTs(getTs(blocks[j - 1]), getTs(blocks[j]))}
+        else if (j <= 7680) {change = getDifficultyFromTs2(getTs(blocks[j - 5]), getTs(blocks[j]))}
+        else if (j <= 7950) {change = getDifficultyFromTs3(getTs(blocks[j - 25]), getTs(blocks[j]))}
+        else if (i % 10 === 0) {change = getDifficultyFromTs4(getTs(blocks[j - 10]), getTs(blocks[j]))}
+        difficultyCache[i] = difficultyCache[i-1] + change
+    }
+    return difficultyCache[blockIndex]
+}
+function getBlockReward(blockIndex) {
+    if (blockIndex < 5_000) return 10000
+    if (blockIndex < 15_000) return 5000
+    if (blockIndex < 35_000) return 2500
+    return Math.ceil(2500 * (2**(-(blockIndex-35_000)/524288)))
+}
+function getFee(amount) {
+    if (amount > 10) {return Math.max(10, Math.ceil(amount*0.01))}
+    else {return amount}
+}
+function getTipHash() {
+    return blocks[blocks.length-1].split("|")[0]
+}
+function compare(original, candidate, startBlockHeight) {
+    function getValue(chain) {
+        if (10 - (startBlockHeight % 10) > chain.length) {
+            return chain.length
+        }
+        let d = 1
+        let t = 10 - (startBlockHeight % 10)
+        chain = chain.slice(t)
+        while (true) {
+            if (chain.length <= 10) {
+                d /= Math.pow(2,getDifficultyFromTs4(getTs(chain[0]), getTs(chain[chain.length-1]), chain.length))
+                t += chain.length*d
+                return t
+            }
+            d /= Math.pow(2,getDifficultyFromTs4(getTs(chain[0]), getTs(chain[9])))
+            t += 10*d
+            chain = chain.slice(10)
+        }
+        return t
+    }
+    return getValue(candidate) > getValue(original)
+}
+function getMaxTxs() {
+    let bits = getDifficultyBits(blocks.length)
+    if (bits >= 216) {return 6}
+    return Math.min(201, 6 + Math.floor(2 ** (215 - bits)))
+}

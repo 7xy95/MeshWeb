@@ -1,0 +1,36 @@
+name: Windows Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Clean install
+        shell: cmd
+        run: |
+          if exist node_modules rmdir /s /q node_modules
+          if exist package-lock.json del package-lock.json
+          npm install --os=win32 --cpu=x64
+
+      - name: Check WebGPU packages
+        shell: cmd
+        run: |
+          dir node_modules\@sylphx
+          dir node_modules\@sylphx\webgpu
+
+      - name: Build Windows x64
+        run: npm run make -- --platform=win32 --arch=x64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mesh-win32-x64
+          path: out/**
