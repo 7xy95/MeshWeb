@@ -1,11 +1,11 @@
 {
-  "name": "mesh",
-  "version": "2.2.0",
+  "name": "meshWeb",
+  "version": "1.0.0",
   "description": "",
   "main": "main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/7xy95/MeshApp.git"
+    "url": "https://github.com/7xy95/MeshWeb.git"
   },
   "scripts": {
     "start": "electron-forge start",

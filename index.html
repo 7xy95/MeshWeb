@@ -2,553 +2,103 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Wallet v2.2.0</title>
+    <title>Mesh Web v1.0.0</title>
+    <link rel="stylesheet" href="main.css">
     <style>
-        body {
-            margin: 0;
-            height: 100vh;
-            background-color: #162633;
-            font-variant-numeric: tabular-nums;
-            color: #dfe6ed;
-        }
-        input {
-            background-color: #2c4155;
-            color: #dfe6ed;
-            border: none;
-            padding: 4px 7px;
-            font-family: monospace;
-        }
-        .page {
-            width: 100vw;
-            height: 100vh;
-            font-family: monospace;
-            display: flex;
-            min-height: 0;
-        }
-        .pages {
-            display: flex;
-            flex-direction: column;
-            width: 65px;
-        }
-        .logInPanel {
-            font-family: monospace;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            width: 100vh;
-            height: 100vh;
-        }
-        .mainPanel {
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            font-family: monospace;
-        }
-        .panel {
-            background-color: #151e29;
-            border-radius: 3px;
-            font-size: 15px;
-            position: relative;
-            padding: 15px;
-            margin: 4px 0;
-        }
-        .fullscreen {
-            margin: 12px;
-            width: 100%;
-        }
-        .panel p {
-            margin: 8px 0;
-        }
-        .left {
-            width: 300px;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-        }
-        .left .panel {
-            flex: 1;
-            margin-top: 12px;
-            margin-left: 12px;
-        }
-        .right .panel {
-            flex: 1;
-            margin: 12px;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-        .right {
-            flex: 1;
-            height: 100%;
-            display: flex;
-            min-height: 0;
-        }
-        .btn {
-            margin-top: 30px;
-            background-color: #2c4155;
-            color: #d6d7e1;
-            border: none;
-            padding: 8px 18px;
-            border-radius: 2px;
-            font-size: 15px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .btn:hover {
-            background-color: #243545;
-            transform: scale(1.025);
-        }
-        .pageIcon {
-            margin: 10px 10px 0;
-            padding: 0;
-            background-color: #151c23;
-            align-items: center;
-            height: 50px;
-            width: 50px;
-        }
-        .topBar {
-            padding: 12px 16px 0 16px;
-            box-sizing: border-box;
-            display: flex;
-            align-items: flex-start;
-            flex-direction: column;
-        }
-        .label {
-            text-align: left;
-        }
-        .value {
-            text-align: left;
-        }
-        .info {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            align-items: center;
-        }
-        .blockInfo {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            align-items: center;
-        }
-        hr {
-            height: 1px;
-            border: none;
-            background-color: rgb(54 60 78 / 0.72);
-        }
-        .input {
-            background-color: #2c4155;
-            color: #dfe6ed;
-            border: none;
-            padding: 4px 7px;
-        }
-        .input::placeholder {
-            color: #dfe6ed;
-        }
         input:focus {
-            background-color: #243545;
-            outline: none;
+            background-color: #1c1c1c;
+        }
+        .topArrow {
+            background-color: #2c2c2c;
+            color: #dfe6ed;
             border: none;
+            margin: 8px;
+            font-size: 16px;
         }
-        .popup {
-            font-family: monospace;
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgb(0 0 0 / 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        .topArrow:hover {
+            color: #a5abb1;
         }
-        .popupBox {
-            width: 400px;
-            height: 300px;
-            background-color: #162633;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            align-items: center;
-            position: relative;
-        }
-        .popupBoxLeft {
-            align-items: flex-start;
-            gap: 10px;
-            padding-left: 20px;
-            display: flex;
-        }
-        .contactItem {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .tabIcons {
+            position: absolute;
+            top: 0;
+            left: 0;
+
             width: 100%;
-            margin-bottom: 6px;
-        }
-        .smallBtn {
-            font-size: 15px;
-            padding: 6px 6px;
-            margin: 0 0 0 20px;
-            background-color: #162633;
-        }
-        .smallBtn:hover {
-            background-color: #162633;
-            transform: scale(1.4);
-        }
-        .contactList {
-            overflow-y: auto;
-            width: 95%;
-            margin-bottom: 30px;
-            display: grid;
-            position: relative;
-        }
-        .history {
-            overflow-y: auto;
-            flex: 1;
-            min-height: 0;
-        }
-        .historyItem {
-            border: none;
-            background: none;
-            color: inherit;
-            font: inherit;
-            text-align: inherit;
-            width: 100%;
-            cursor: pointer;
+            height: 42px;
+            background-color: #1c1c1c;
 
-            display: grid;
-            grid-template-columns: auto 1fr auto;
-            grid-template-rows: auto auto;
-            column-gap: 4px;
-            row-gap: 4px;
-            align-items: center;
-            padding: 0;
-            margin: 0 0 30px;
-        }
-        .historyItem:hover {
-            background-color: rgb(222 222 222 / 0.1);
-            /*padding: 15px;*/
-            /*margin: -15px -15px 15px;*/
-        }
-        .historyItem p {
-            margin: 0;
-        }
-        .iconH {
-            grid-column: 1;
-            grid-row: 1 / 3;
-        }
-        .timeH {
-            grid-column: 2;
-            grid-row: 1;
-        }
-        .changeH {
-            grid-column: 3;
-            grid-row: 1;
-            text-align: right;
-        }
-        .infoH {
-            grid-column: 2 / 4;
-            grid-row: 2;
-            word-break: break-all;
-        }
-        .history::-webkit-scrollbar {
-            display: none;
-        }
-        .explorerPanel {
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            overflow: hidden;
-        }
-        .miningHeader {
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            padding: 5px;
+            gap: 5px;
+            box-sizing: border-box;
         }
-
-        .buttonSettingsGroup {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .settingsBtn {
-            width: 32px;
+        .tab {
+            width: min(20%, 220px);
+            background-color: #2c2c2c;
+            color: #dfe6ed;
             height: 32px;
-            padding: 0;
+
             display: flex;
             align-items: center;
+
+            padding-left: 12px;
+            padding-right: 8px;
+            box-sizing: border-box;
+
+            min-width: 0;
+            border-radius: 8px 8px 0 0;
+
+            font-family: Arial;
+            font-size: 12px;
+        }
+        .tab p {
+            margin: 0;
+            flex: 1;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        .tabBtn {
+            width: 24px;
+            height: 24px;
+
+            display: flex;
             justify-content: center;
+            align-items: center;
+
+            padding: 0;
+            margin-left: 6px;
+
+            background-color: transparent;
+            border: none;
+            border-radius: 50%;
+
+            color: #dfe6ed;
+            font-size: 18px;
+
+            cursor: pointer;
+        }
+        .tab.active {
+            background-color: #3b3b3b;
         }
     </style>
 </head>
 <body>
-<div id="logInPanel" class="logInPanel">
-    <p id="enterSeedText">Enter wallet seed:</p>
-    <input class="input" type="password" id="walletSeedInput" style="width: 300px; margin-bottom: 0">
-    <button class="btn" style="margin-top: 8px" onclick="walletSeedInput.type = walletSeedInput.type === 'password' ? 'text' : 'password'">Show/Hide seed</button>
-    <p style="margin-left: 100px; margin-right: 100px; margin-bottom: 0; text-align: center">The wallet seed is a password that will store your Mesh, please ensure
-    that you save it somewhere safe. It is also advised to select a secure seed at least 10 characters long</p>
-    <button class="btn" type="submit" onclick="run(`logIn(${JSON.stringify(document.getElementById('walletSeedInput').value)})`)">Log In</button>
-</div>
-<div id="mainPanel" class="mainPanel" style="display: none">
-    <div class="topBar">
-        <p id="vBalanceTop" style="font-size: 24px; margin-top: -5px">Syncing...</p>
-        <p id="addressTop" style="font-size: 16px; margin-top: -20px">This may take up to 20s...</p>
-        <button class="btn" onclick="run('logOut()')" style="font-size: 16px; margin-top: 0; position: absolute; top: 10px; right: 10px">Log Out</button>
-        <hr style="height: 2px; width: 100%">
+<div class="tabs">
+    <div class="tabIcons" id="tabIcons">
+<!--        <div class="tab">-->
+<!--            <p>New Tab</p>-->
+<!--            <button class="tabBtn">×</button>-->
+<!--        </div>-->
+        <button class="tabBtn" id="newTabBtn">+</button>
     </div>
-    <div id="page0" class="page">
-        <div class="pages">
-            <button class="btn pageIcon" style="background-color: #0b1117" onclick="openPage(0)"><svg style="margin: 0; padding: 0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d0d9e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
-            <button class="btn pageIcon" onclick="openPage(1)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d0d9e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-text-search-icon lucide-text-search"><path d="M21 5H3"/><path d="M10 12H3"/><path d="M10 19H3"/><circle cx="17" cy="15" r="3"/><path d="m21 19-1.9-1.9"/></svg></button>
-        </div>
-        <div class="left">
-            <div class="panel" style="flex: 0">
-                <p>Balance</p>
-                <hr>
-                <p class="info">
-                    <span class="label">Verified:</span>
-                    <span class="value" id="vBalance">0.000</span>
-                </p>
-                <p class="info" style="margin-bottom: 15px">
-                    <span class="label">Unverified:</span>
-                    <span class="value" id="unVBalance">0.000</span>
-                </p>
-                <div class="miningHeader" style="margin-top: 10px">
-                    <button class="btn" onclick="openTxPopup()" style="margin-top: 0; font-size: 12px">Send MESH</button>
-<!--                    <button class="btn" onclick="openMsgPopup()" style="margin-top: 0; font-size: 12px">Send Msg (1 MESH)</button>-->
-                </div>
-            </div>
-            <div class="panel">
-                <p>Network Stats</p>
-                <hr>
-                <p class="info">
-                    <span class="label">Difficulty:</span>
-                    <span class="value" id="difficulty">-</span>
-                </p>
-                <p class="info">
-                    <span class="label">Retarget:</span>
-                    <span class="value" id="nextDiff">-</span>
-                </p>
-                <p class="info" style="margin-top: 24px">
-                    <span class="label">Block Height:</span>
-                    <span class="value" id="blockCount">-</span>
-                </p>
-                <p class="info">
-                    <span class="label">Block Reward:</span>
-                    <span class="value" id="blockReward">-</span>
-                </p>
-                <p class="info" style="margin-top: 24px">
-                    <span class="label">Mempool Size:</span>
-                    <span class="value" id="mempoolSize">-</span>
-                </p>
-                <p class="info">
-                    <span class="label">Entry Fee:</span>
-                    <span class="value" id="blockEntryFee">-</span>
-                </p>
-            </div>
-            <div class="panel" style="margin-bottom: 12px; flex: 0">
-                <div class="miningHeader">
-                    <p style="margin: 0 15px 0 0">Mining</p>
-                    <div class="buttonSettingsGroup">
-                        <button class="btn" onclick="toggleMining()" style="margin-top: 0; height: 32px" id="toggleMiningBtn">Start Mining</button>
-                        <button class="btn settingsBtn" style="margin-top: 0" onclick="openMiningSettingsPopup()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings-icon lucide-settings"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></button>
-                    </div>
-                </div>
-                <hr>
-                <p class="info">
-                    <span class="label">Tried:</span>
-                    <span class="value" id="totalHashes">-1</span>
-                </p>
-                <p class="info">
-                    <span class="label">Found:</span>
-                    <span class="value" id="hashesFound">-1</span>
-                </p>
-                <p class="info">
-                    <span class="label">MESH/min:</span>
-                    <span class="value" id="estMesh">-1</span>
-                </p>
-                <p class="info">
-                    <span class="label">Hashrate:</span>
-                    <span class="value" id="hashrate">-1</span>
-                </p>
-                <p id="lowBatteryMining" style="color: #f42525; font-size: 12px; margin: 0"></p>
-            </div>
-        </div>
-        <div class="right">
-            <div class="panel">
-                <p>History</p>
-                <div class="buttonSettingsGroup">
-                    <button class="btn settingsBtn" style="margin-top: 0" onclick="openHistorySettingsPopup()"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings-icon lucide-settings"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></button>
-                    <button class="btn" onclick="openContactPopup()" style="font-size: 16px; margin-top: 0; position: absolute; top: 10px; right: 10px">Manage Contacts</button>
-                </div>
-                <hr>
-                <div class="history" id="history"></div>
-            </div>
-        </div>
-    </div>
-    <div id="page1" class="page" style="display: none">
-        <div class="pages">
-            <button class="btn pageIcon" onclick="openPage(0)"><svg style="margin: 0; padding: 0" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d0d9e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-house-icon lucide-house"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
-            <button class="btn pageIcon" style="background-color: #0b1117" onclick="openPage(1)"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d0d9e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-text-search-icon lucide-text-search"><path d="M21 5H3"/><path d="M10 12H3"/><path d="M10 19H3"/><circle cx="17" cy="15" r="3"/><path d="m21 19-1.9-1.9"/></svg></button>
-        </div>
-        <div class="panel fullscreen explorerPanel">
-            <p style="font-size: 24px">Block Explorer</p>
-            <label style="display: flex; align-items: center; gap: 10px">
-                <span style="width: 250px">Number of rows to show: </span>
-                <input class="input" id="maxTxDisplay" type="number" value="100" oninput="run('updateBlockData()')" style="width: 70px">
-            </label>
-            <label style="display: flex; align-items: center; gap: 10px; margin-top: 15px; margin-bottom: 15px">
-                <span style="width: 250px">Specific address to search: </span>
-                <input class="input" id="searchingAddress" oninput="
-                run('updateBlockData()')
-                " style="width: 250px">
-            </label>
-            <div style="display: flex" id="searchBalanceInfo">
-                <p class="info">
-                    <span class="label">Balance: </span>
-                    <span class="value" id="searchBalance" style="margin-left: 6px"></span>
-                </p>
-            </div>
-            <div>
-                <p class="blockInfo">
-                    <span class="value">Block Index</span>
-                    <span class="value">Address From</span>
-                    <span class="value">Address To</span>
-                    <span class="value" id="explorerAmountText">Amount</span>
-                </p>
-                <hr>
-            </div>
-            <div id="explorerData" style="overflow-y: auto; min-height: 0">
-            </div>
-        </div>
-    </div>
+    <button id="back" class="topArrow">←</button>
+    <button id="forward" class="topArrow">→</button>
+    <input style="width: 50%; margin: 5px"  id="urlInput">
 </div>
-<div class="popup" style="display: none" id="tx">
-    <div class="popupBox">
-        <p style="font-size: 24px; margin-top: 20px; text-align: left" id="sendPopupTitle"></p>
-        <button class="btn" onclick="closePopup()" style="font-size: 32px; margin-top: 0; position: absolute; top: 10px; right: 10px">×</button>
-        <input class="input" id="addressInput" placeholder="Enter Receiver's Address..." style="margin-top: 10px; width: 300px">
-        <input class="input" id="dataInput" style="width: 300px" oninput="setFeeText()">
-        <input class="input" id="feeInput" placeholder="Enter Extra Fees (Optional)" oninput="setFeeText()" style="width: 300px">
-        <p style="color: #ed4141; margin-bottom: 10px; font-size: 14px" id="sendError"></p>
-        <button class="btn" onclick="submitTx()" style="row-gap: 0; margin-top: 10px">Send</button>
-    </div>
-</div>
-<div class="popup" style="display: none" id="contacts">
-    <div class="popupBox popupBoxLeft" style="width: 600px; height: 450px; margin-left: 40px; gap: 0">
-        <p style="font-size: 24px; margin-top: 20px">Contacts</p>
-        <button class="btn" onclick="closeHistoryPopup()" style="font-size: 32px; margin-top: 0; position: absolute; top: 10px; right: 10px">×</button>
-        <input class="input" id="contactAddress" placeholder="Enter address to save as contact..." style="width: 330px">
-        <input class="input" id="contactName" placeholder="Enter name..." style="width: 330px; margin-top: 10px">
-        <button class="btn" onclick="addContact()" style="margin-top: 10px; margin-bottom: 10px">Add Contact</button>
-        <div class="contactList" id="contactList"></div>
-    </div>
-</div>
-<div class="popup" style="display: none" id="update">
-    <div class="popupBox popupBoxLeft" style="width: 600px; height: 450px; margin-left: 40px; gap: 0">
-        <p style="font-size: 24px; margin-top: 20px" id="updateTitle">vx.y.z Available!</p>
-        <button class="btn" onclick="closeUpdatePopup()" style="font-size: 32px; margin-top: 0; position: absolute; top: 10px; right: 10px">×</button>
-        <p>The new version can be found on https://github.com/7xy95/MeshApp/releases</p>
-        <p id="updateInfo">Changes:<br>
-        - Changed x<br>
-        - Added y<br>
-        - Removed z</p>
-    </div>
-</div>
-<div class="popup" style="display: none" id="miningSettings">
-    <div class="popupBox popupBoxLeft" style="width: 600px; height: 450px; margin-left: 40px; gap: 0">
-        <p style="font-size: 24px; margin-top: 20px">Mining Settings</p>
-        <button class="btn" onclick="closeMiningSettingsPopup()" style="font-size: 32px; margin-top: 0; position: absolute; top: 10px; right: 10px">×</button>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0">Use GPU </p>
-            <input type="checkbox" onchange="run(`useGPU = ${this.checked}`)" id="useGPUCheckbox" style="position: relative; top: 2px; border-radius: 0; border: none">
-        </label>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 200px; height: 90%">Throttle (ms):</p>
-            <input value="0" id="throttleTime" class="input" onchange="run(`throttleTime = ${Number(this.value) || 0}`)" style="position: relative; top: 2px; width: 360px; height: 90%">
-        </label>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 200px">Batch size (Millions):</p>
-            <input value="2" id="batchSize" class="input" onchange="run(`batchSize = ${Number(this.value) || 2}`)" style="position: relative; top: 2px; width: 360px; height: 90%">
-        </label>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 200px">Min Battery (%):</p>
-            <input value="25" id="minBattery" class="input" onchange="run(`minBattery = ${Number(this.value) || 25}`)" style="position: relative; top: 2px; width: 360px; height: 90%">
-        </label>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 200px">Reward Address:</p>
-            <input oninput="run('updateRewardAddress()')" placeholder="Leave blank for your address..." value="" id="rewardAddress" class="input" style="position: relative; top: 2px; width: 360px; height: 90%">
-        </label>
-    </div>
-</div>
-<div class="popup" style="display: none" id="historySettings">
-    <div class="popupBox popupBoxLeft" style="width: 600px; height: 450px; margin-left: 40px; gap: 0">
-        <p style="font-size: 24px; margin-top: 20px">History Settings</p>
-        <button class="btn" onclick="closeHistorySettingsPopup()" style="font-size: 32px; margin-top: 0; position: absolute; top: 10px; right: 10px">×</button>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 300px">Include Block Mined</p>
-            <input type="checkbox" onchange="run(`iBlockMined = ${this.checked}`); run('setHistory()'); console.log(this.checked)" checked style="position: relative; top: 2px; border-radius: 0; border: none">
-        </label>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 300px">Include Incoming Transactions</p>
-            <input type="checkbox" onchange="run(`iIncomingTx = ${this.checked}`); run('setHistory()'); console.log(this.checked)" checked style="position: relative; top: 2px; border-radius: 0; border: none">
-        </label>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 300px">Include Outgoing Transactions</p>
-            <input type="checkbox" onchange="run(`iOutgoingTx = ${this.checked}`); run('setHistory()'); console.log(this.checked)" checked style="position: relative; top: 2px; border-radius: 0; border: none">
-        </label>
-        <label style="display: flex; margin-top: 8px">
-            <p style="margin: 10px 15px 0 0; width: 300px">Include Unverified Transactions</p>
-            <input type="checkbox" onchange="run(`iUnverifiedTx = ${this.checked}`); run('setHistory()'); console.log(this.checked)" checked style="position: relative; top: 2px; border-radius: 0; border: none">
-        </label>
-    </div>
-</div>
-<div class="popup" id="txInfo" style="display: none">
-    <div class="popupBox popupBoxLeft">
-        <p style="font-size: 24px; margin-top: 20px" id="txInfoTitle"></p>
-        <button class="btn" onclick="closeTxInfo()" style="font-size: 32px; margin-top: 0; position: absolute; top: 10px; right: 10px">×</button>
-        <div style="width: 100%">
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label">Block Index:</div>
-                <div class="value" id="txInfoBlockIndexField"></div>
-            </div>
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label">From:</div>
-                <div class="value" id="txInfoFromField"></div>
-            </div>
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label">To:</div>
-                <div class="value" id="txInfoToField"></div>
-            </div>
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label">Amount:</div>
-                <div class="value" id="txInfoAmountField"></div>
-            </div>
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label">Fees To Miner:</div>
-                <div class="value" id="txInfoFeesField"></div>
-            </div>
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label">Confirmations:</div>
-                <div class="value" id="txInfoConfField"></div>
-            </div>
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label">Date:</div>
-                <div class="value" id="txInfoDateField"></div>
-            </div>
-            <div class="info" style="margin-bottom: 3px">
-                <div class="label" id="txInfoExtraLabel"></div>
-                <div class="value" id="txInfoExtraField"></div>
-            </div>
-        </div>
-    </div>
-</div>
-<div id="debug" style="position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; background-color: #162633; display: none; z-index: 999; overflow: auto">
-    <p id="debugData" style="margin: 15px; font-family: monospace; font-size: 13px"></p>
-</div>
+<div id="pages"></div>
 <script>
-    let popup = -1
-    let page = 0
-
     const { ipcRenderer } = require("electron")
     ipcRenderer.on("ui:set", (event, data) => {
         let e = document.getElementById(data.id)
@@ -568,6 +118,35 @@
         }
         fn(...data.args)
     })
+    ipcRenderer.on("new-tab-url", (event, url) => {
+		newTab(url)
+    })
+    ipcRenderer.on("shortcut", (event, input) => {
+		if (input.type !== "keyDown" || input.isAutoRepeat) {return}
+        if (!(input.control || input.meta)) {return}
+
+		let key = input.key.toLowerCase()
+        if (key === "t") {
+			newTab()
+        }
+		else if (key === "w") {
+			deleteTab(activeTab)
+		}
+		else if (key === "r") {
+			page.reload()
+		}
+		else if (key === "l") {
+			urlInput.focus()
+            urlInput.select()
+		}
+		else if (key >= "1" && key <= "8") {
+			let i = Number(key)-1
+            if (tabs[i]) {selectTab(tabs[i])}
+        }
+		else if (key === "9") {
+			selectTab(tabs[tabs.length-1])
+        }
+    })
     function run(code) {
         ipcRenderer.send("main:run", code)
     }
@@ -582,25 +161,181 @@
         console.log(error)
     })
 
-    async function toggleMining() {
-        run('mine = !mine')
-        if (await get('mine')) {document.getElementById('toggleMiningBtn').innerText = 'Stop Mining'}
-        else {document.getElementById('toggleMiningBtn').innerText = 'Start Mining'}
+
+    let tabs = []
+    let activeTab = null
+	let urlInput = document.getElementById("urlInput")
+	let page = null
+
+    function newTab(url = "mesh://search") {
+		let webview = document.createElement("webview")
+        webview.className = "page"
+        webview.setAttribute("preload", "./webview.js")
+		webview.setAttribute("allowpopups", "")
+        document.getElementById("pages").appendChild(webview)
+
+        let tabIcon = document.createElement("div")
+        tabIcon.className = "tab"
+        let title = document.createElement("p")
+        title.innerText = "New Tab"
+        let closeBtn = document.createElement("button")
+		closeBtn.className = "tabBtn"
+		closeBtn.innerText = "×"
+
+        tabIcon.appendChild(title)
+        tabIcon.appendChild(closeBtn)
+
+		document.getElementById("tabIcons").insertBefore(tabIcon, document.getElementById("newTabBtn"))
+
+        let tab = {webview, tabIcon, title}
+
+
+		tabIcon.addEventListener("click", () => {
+			selectTab(tab)
+		})
+		closeBtn.addEventListener("click", event => {
+			event.stopPropagation()
+			deleteTab(tab)
+		})
+		webview.addEventListener("page-title-updated", event => {
+			title.innerText = event.title || "New Tab"
+		})
+		webview.addEventListener("did-navigate", (event) => {
+			if (tab !== activeTab) { return }
+			updateUrl(event.url)
+		})
+		webview.addEventListener("ipc-message", event => {
+			if (tab !== activeTab) { return }
+			if (event.channel === "ui:setUrl") {
+				parseUrlInput(event.args[0])
+			}
+		})
+		webview.addEventListener("did-navigate-in-page", (event) => {
+			if (tab !== activeTab) { return }
+			updateUrl(event.url)
+		})
+
+
+        tabs.push(tab)
+        selectTab(tab)
+
+		urlInput.value = url
+		parseUrlInput(url)
+    }
+	function selectTab(tab) {
+		activeTab = tab
+
+        for (let t of tabs) {
+			t.webview.style.display = t === tab ? "flex" : "none"
+            t.tabIcon.classList.toggle("active", t === tab)
+        }
+
+		page = tab.webview
+        updateUrl(page.src)
+    }
+	function deleteTab(tab) {
+		let index = tabs.indexOf(tab)
+        if (index === -1) {return}
+
+		let wasActive = tab === activeTab
+        tab.webview.remove()
+        tab.tabIcon.remove()
+        tabs.splice(index, 1)
+
+        if (tabs.length === 0) {newTab(); return}
+
+		if (wasActive) {
+			selectTab(tabs[Math.min(index, tabs.length-1)])
+        }
     }
 
-    function toggleDebug() {
-        if (document.getElementById("debug").style.display === "none") {
-            document.getElementById("debug").style.display = "flex"
-            run('debug = true')
+	newTab()
+    document.getElementById("newTabBtn").addEventListener("click", () => {
+		newTab()
+	})
+
+
+    document.getElementById("back").addEventListener("click", () => {
+		if (page.canGoBack()) {
+			page.goBack()
+        }
+    })
+	document.getElementById("forward").addEventListener("click", () => {
+		if (page.canGoForward()) {
+			page.goForward()
+		}
+	})
+
+    async function updateUrl(u) {
+        let url = new URL(u)
+        if (url.protocol === "file:" && url.pathname.endsWith(".html") && url.pathname.includes("mainPage/")) {
+            let name = url.pathname.match(/mainPage\/([^/]+)\.html$/)[1]
+            let params = u.split(".html?")[1]
+            if (!params) {
+				urlInput.value = `mesh://${name}`
+            }
+			else {
+				urlInput.value = `mesh://${name}?${params}`
+            }
+            return
+        }
+        urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
+    }
+    urlInput.addEventListener("keydown", async (event) => {
+        if (event.key === "Enter") {
+            void parseUrlInput(urlInput.value.trim())
+        }
+    })
+
+    async function parseUrlInput(url) {
+        console.log(`in parse url, url: ${url}`)
+        if (url.startsWith("mesh://")) {
+            setMainPageUrl(url.slice(7))
+            console.log(url.slice(7))
+            return
+        }
+
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+            url = "https://" + url
+        }
+
+        if (isMeshUrl(url)) {
+            page.src = await get(`global.domainToEndpoint(${JSON.stringify(url)})`)
+        }
+        else if (url.includes(".") && !url.includes(" ")) {
+            page.src = url
+        }
+        else if (url === "https://") {
+            setMainPageUrl("search")
         }
         else {
-            document.getElementById("debug").style.display = "none"
-            run('debug = false')
+            page.src = `https://www.google.com/search?q=${url.slice(8)}&udm=14`
         }
     }
+
+    function setMainPageUrl(url) {
+        let [pageName, query] = url.split("?")
+        let path = `./mainPage/${pageName}.html`
+
+        if (query) {path += "?" + query}
+
+        page.src = new URL(path, window.location.href).href
+        console.log(`set main page: ${page.src}`)
+    }
+
+    function isMeshUrl(url) {
+        try {
+            url = url.includes("://")
+                ? new URL(url)
+                : new URL("https://" + url)
+
+            return url.hostname.endsWith(".mesh")
+        }
+        catch {
+            return false
+        }
+    }
+
 </script>
-<script src="js/ui.js"></script>
-<script src="js/utils.js"></script>
-<script src="js/storage.js"></script>
 </body>
 </html>

@@ -1,7 +1,8 @@
 const http = require("node:http")
-const { spawn, spawnSync } = require("node:child_process")
+const { spawn} = require("node:child_process")
 const { app } = require("electron")
-const readline = require("node:readline");
+const sync = require("./sync.js")
+const path = require("path")
 
 let server = null
 let port = null
@@ -10,27 +11,17 @@ let tunnelUrl = null
 
 async function updateURL() {
     try {
-        let html = await (await fetch("https://meshcoin.org/node")).text()
+        let html = await (await fetch("https://meshcoin.org/webNode")).text()
         const match = html.match(/https?:\/\/[^<\s]+/)
         if (!match) {
             throw new Error("No URL found")
         }
         let url = match[0].replace(/\/$/, "") + "/"
-        if (!allNodes.includes(url) && !activeNodes.includes(url) && url !== tunnelUrl) {
-            allNodes.push(url)
+        if (!global.allNodes.includes(url) && url !== tunnelUrl) {
+            global.allNodes.push(url)
         }
     }
     catch (error) {console.log(error)}
-}
-async function getLatestVersion() {
-    while (true) {
-        try {
-            let response = await fetch("https://api.github.com/repos/7xy95/MeshApp/releases/latest")
-            response = await response.json()
-            return [response.tag_name, response.body]
-        }
-        catch (error) {}
-    }
 }
 async function get(nodeUrl, request, timeout=3) {
     let controller = new AbortController()
@@ -54,25 +45,25 @@ async function get(nodeUrl, request, timeout=3) {
 async function getNodes() {
     async function g(node) {
         try {
-            let res = await get(node, "allNodes")
-            let nodes = res.nodes
+            let res = await get(node, "peers")
+            let nodes = res.peers
             for (let n of nodes) {
-                if (!allNodes.includes(n) && !activeNodes.includes(n) && n !== tunnelUrl) {
-                    allNodes.push(n)
+                if (!global.allNodes.includes(n) && n !== tunnelUrl) {
+                    global.allNodes.push(n)
                 }
             }
             return true
         }
         catch (error) {return false}
     }
-    if (allNodes.length + activeNodes.length === 0) {await updateURL()}
+    if (global.allNodes.length === 0) {await updateURL()}
     for (let i = 0; i<3; i++) {
-        await g([...allNodes, ...activeNodes][Math.floor(Math.random()*(activeNodes.length+allNodes.length))])
+        await g(global.allNodes[Math.floor(Math.random()*(global.allNodes.length))])
     }
 }
 async function shareUrl() {
     for (let i = 0; i<5; i++) {
-        let randNode = [...allNodes, ...activeNodes][Math.floor(Math.random()*(activeNodes.length+allNodes.length))]
+        let randNode = global.allNodes[Math.floor(Math.random()*(global.allNodes.length))]
         if (randNode === undefined) {console.log("no nodes"); continue}
         void fetch(randNode + "node", {
             method: "POST",
@@ -90,39 +81,31 @@ async function checkUrl() {
     }
 }
 
-async function broadcastTx(tx) {
-    for (let node of activeNodes) {
-        void fetch(node + "tx", {
+async function broadcastDomain(domain) {
+    let randN = [...global.allNodes]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 15)
+    for (let node of randN) {
+        void fetch(node + "domain", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
-                tx: tx,
+                domain: domain,
                 node: tunnelUrl
             })
         }).catch(error => {console.log(error)})
     }
 }
-async function broadcastBlock(block, tipHash) {
-    for (let node of activeNodes) {
-        void fetch(node + "block", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({
-                block: block,
-                height: blocks.length,
-                tipHash: tipHash,
-                node: tunnelUrl
-            })
-        }).catch(error => {console.log(error)})
-    }
-}
-async function broadcastNode(url) {
-    for (let node of activeNodes) {
+async function broadcastNode(nodeUrl) {
+    let randN = [...global.allNodes]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 15)
+    for (let node of randN) {
         void fetch(node + "node", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
             body: JSON.stringify({
-                node: url
+                node: nodeUrl
             })
         }).catch(error => {console.log(error)})
     }
@@ -131,30 +114,30 @@ async function broadcastNode(url) {
 function getCloudflarePath() {
     if (process.platform === "win32") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "bin", "win-x64", "cloudflared.exe")
+            return path.join(process.resourcesPath, "..", "bin", "win-x64", "cloudflared.exe")
         }
 
-        return path.join(__dirname, "bin", "win-x64", "cloudflared.exe")
+        return path.join(__dirname, "..", "bin", "win-x64", "cloudflared.exe")
     }
     if (process.platform === "darwin" && process.arch === "arm64") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "bin", "mac-arm64", "cloudflared")
+            return path.join(process.resourcesPath, "..", "bin", "mac-arm64", "cloudflared")
         }
 
-        return path.join(__dirname, "bin", "mac-arm64", "cloudflared")
+        return path.join(__dirname, "..", "bin", "mac-arm64", "cloudflared")
     }
     if (process.platform === "darwin" && process.arch === "x64") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "bin", "mac-x64", "cloudflared")
+            return path.join(process.resourcesPath, "..", "bin", "mac-x64", "cloudflared")
         }
 
-        return path.join(__dirname, "bin", "mac-x64", "cloudflared")
+        return path.join(__dirname, "..", "bin", "mac-x64", "cloudflared")
     }
 
     throw new Error("Unsupported platform for cloudflared")
 }
+
 async function runServer() {
-    return
     function readBody(req, maxSize) {
         return new Promise((resolve, reject) => {
             let body = ""
@@ -186,20 +169,15 @@ async function runServer() {
     }
     if (server) {return}
 
-    let [lVersion, changelogs] = await getLatestVersion()
-    changelogs = changelogs.replaceAll("\n", "<br>")
-    changelogs = "<br>" + changelogs
-    if (lVersion.startsWith("v") && lVersion !== APP_VERSION) {callRenderer("openUpdatePopup", [lVersion, changelogs])}
-
     let fork = false
     server = http.createServer({
         maxHeaderSize: 2048
     }, async (req, res) => {
         try {
-            if (req.method === "GET" && req.url === "/getPeers") {
+            if (req.method === "GET" && req.url === "/peers") {
                 sendJSON(res, 200, {
                     ok: true,
-                    peers: JSON.stringify(activeNodes)
+                    peers: global.allNodes
                 })
                 return
             }
@@ -209,73 +187,12 @@ async function runServer() {
                 })
                 return
             }
-            if (req.method === "GET" && req.url === "/height") {
+            if (req.method === "GET" && req.url === "/domains") {
                 sendJSON(res, 200, {
                     ok: true,
-                    height: blocks.length,
-                    tipHash: getTipHash()
+                    domains: global.domains
                 })
                 return
-            }
-            if (req.method === "GET" && req.url === "/mempool") {
-                sendJSON(res, 200, {
-                    ok: true,
-                    mempool: mempool,
-                    tipHash: getTipHash()
-                })
-                return
-            }
-            if (req.method === "GET" && req.url === "/nodes") {
-                sendJSON(res, 200, {
-                    ok: true,
-                    nodes: activeNodes
-                })
-                return
-            }
-            if (req.method === "GET" && req.url === "/allNodes") {
-                sendJSON(res, 200, {
-                    ok: true,
-                    nodes: [...allNodes, ...activeNodes]
-                })
-                return
-            }
-            if (req.method === "GET" && req.url.startsWith("/blocks?")) {
-                let url = new URL(req.url, "http://localhost")
-                try {
-                    let start = Number(url.searchParams.get("start"))
-                    let stop = url.searchParams.get("stop")
-                    if (stop !== null) {
-                        stop = Number(stop)
-                        if (stop - start + 1 > MAX_BLOCKS || start > stop || !Number.isSafeInteger(start)
-                        || !Number.isSafeInteger(stop) || start < 0) {
-                            sendJSON(res, 400, {
-                                ok: false,
-                                error: "Invalid or too large block request count"
-                            })
-                            return
-                        }
-                        sendJSON(res, 200, {
-                            ok: true,
-                            blocks: blocks.slice(start, stop+1)
-                        })
-                        return
-                    }
-                    else {
-                        if (!Number.isSafeInteger(start) || start < 0) {return}
-                        sendJSON(res, 200, {
-                            ok: true,
-                            blocks: blocks.slice(start, start+MAX_BLOCKS)
-                        })
-                        return
-                    }
-                }
-                catch (error) {
-                    sendJSON(res, 400, {
-                        ok: false,
-                        error: error
-                    })
-                    return
-                }
             }
 
             async function parsePOST(req, res, maxSize) {
@@ -303,103 +220,16 @@ async function runServer() {
                     return "return"
                 }
             }
-            if (req.method === "POST" && req.url === "/tx") {
+            if (req.method === "POST" && req.url === "/domain") {
                 let data = await parsePOST(req, res, 1024)
                 if (data === "return") {return}
 
-                sendJSON(res, 200, {
-                    ok: true
-                })
-                if (mempool.includes(data.tx)) {return}
-                if (!verifyTx(data.tx)) {return}
-                mempool.push(data.tx)
-                void broadcastTx(data.tx)
-                return
-            }
-            if (req.method === "POST" && req.url === "/block") {
-                let data = await parsePOST(req, res, getMaxTxs()*350+1024)
-                if (data === "return") {return}
+                sendJSON(res, 200, { ok: true })
 
-                sendJSON(res, 200, {
-                    ok: true
-                })
-                if (blocks.includes(data.block)) {return}
-                if (!verifyBlock(data.block)) {
-                    if (fork) {return}
-                    if (typeof data.node !== "string" || (
-                        !activeNodes.includes(data.node) && !allNodes.includes(data.node)
-                    )) {return}
-                    try {
-                        let url = new URL(data.node)
-                        if (url.protocol !== "https:") {return}
-                    }
-                    catch (error) {return}
-                    fork = true
-                    try {
-                        let h = await get(data.node, "height")
-                        if (!h || !h.ok || h.height <= blocks.length) {return}
+                let valid = global.newDomain(data.domain)
+                if (!valid) {return}
 
-                        let fStart = blocks.length - MAX_FBLOCKS
-
-                        let oData = await get(data.node, `blocks?start=${fStart}`)
-                        if (!oData || !oData.ok || !Array.isArray(oData.blocks)) {return}
-                        let oBlocks = oData.blocks
-                        if (oBlocks[0] !== blocks[fStart]) {return}
-                        let sBlocks = blocks.slice()
-                        let sDiff = difficultyCache.slice()
-                        let sBalance = structuredClone(balancesCache)
-                        let sNonce = new Set(nonceCache)
-                        for (let i = 1; i < oBlocks.length; i++) {
-                            if (fStart + i >= blocks.length || oBlocks[i] !== blocks[fStart+i]) {
-                                blocks = blocks.slice(0, fStart+i)
-                                difficultyCache = [230]
-                                balancesCache = {}
-                                nonceCache = new Set()
-                                for (let b of blocks) {
-                                    cacheBlock(b)
-                                }
-                                for (let b of oBlocks.slice(i)) {
-                                    if (verifyBlock(b)) {
-                                        blocks.push(b)
-                                        cacheBlock(b)
-                                    }
-                                    else {
-                                        blocks = sBlocks
-                                        difficultyCache = sDiff
-                                        balancesCache = sBalance
-                                        nonceCache = sNonce
-                                        return
-                                    }
-                                }
-                                if (sBlocks[fStart+i] !== undefined && !compare(sBlocks.slice(fStart+i), oBlocks.slice(i), fStart+i)) {
-                                    blocks = sBlocks
-                                    difficultyCache = sDiff
-                                    balancesCache = sBalance
-                                    nonceCache = sNonce
-                                    return
-                                }
-                                saveBlocks()
-                                fork = false
-                                await broadcastBlock(data.block, getTipHash())
-                                return
-                            }
-                        }
-                    }
-                    finally {
-                        await sleep(5000)
-                        fork = false
-                    }
-                    return
-                }
-                await broadcastBlock(data.block, getTipHash())
-                blocks.push(data.block)
-                cacheBlock(data.block)
-
-                let index = data.block.indexOf(",")
-                let txs = data.block.slice(index+1)
-                txs = new Set(split_(txs))
-                mempool = mempool.filter(tx => !txs.has(tx))
-
+                void broadcastDomain(data.domain)
                 return
             }
             if (req.method === "POST" && req.url === "/node") {
@@ -414,8 +244,8 @@ async function runServer() {
                 sendJSON(res, 200, {
                     ok: true
                 })
-                if (allNodes.includes(data.node) || activeNodes.includes(data.node) || data.node === tunnelUrl) {return}
-                allNodes.push(data.node)
+                if (allNodes.includes(data.node) || data.node === tunnelUrl) {return}
+                global.allNodes.push(data.node)
                 void broadcastNode(data.node)
                 return
             }
@@ -438,7 +268,6 @@ async function runServer() {
         startQuickTunnel()
     })
     function startQuickTunnel() {
-        edit("addressTop", "innerText", "Requesting public endpoint...")
         let gotUrl = false; let works = false; let started = false
         async function tunnelOutput(text) {
             console.log(text)
@@ -447,16 +276,15 @@ async function runServer() {
                 if (!match) {return}
                 tunnelUrl = match[0] + "/"
                 console.log(`tunnel url: ${tunnelUrl}`)
-                edit("addressTop", "innerText", "Waiting for URL to be reachable...")
                 gotUrl = true
                 return
             }
             if (text.includes("precheck complete hard_fail=false")) {
-                await sleep(15000)
+                await global.sleep(15000)
                 let data = await get(tunnelUrl, "online")
                 if (data === null) {
                     console.log("did not respond")
-                    await sleep(5000)
+                    await global.sleep(5000)
                     let data = await get(tunnelUrl, "online")
                     if (data === null) {
                         console.log("did not respond again")
@@ -471,9 +299,10 @@ async function runServer() {
             }
             if (!gotUrl || !works || started) {return}
             started = true
-            edit("addressTop", "innerText", "Getting other node URLs...")
             await updateURL()
-            void startLoad()
+            await getNodes()
+            await shareUrl()
+            void sync.sync()
             void checkTunnel()
         }
         if (tunnelProcess) {return}
@@ -501,4 +330,56 @@ async function runServer() {
             startQuickTunnel()
         })
     }
+}
+
+async function checkTunnel() {
+    while (true) {
+        try {
+            if (tunnelProcess !== null && await get(tunnelUrl, "online") === null) {
+                tunnelProcess.kill()
+            }
+
+            await global.sleep(2500)
+        }
+        catch {
+            await global.sleep(2500)
+        }
+    }
+}
+
+async function checkAllNodes() {
+    while (true) {
+        let results = await Promise.all(
+            allNodes.map(async node => {
+                let data = await get(node, "online")
+                return {node: node, data: data}
+            })
+        )
+
+        for (let r of results) {
+            if (!r.data || !r.data.ok) {
+                let i = allNodes.indexOf(r.node)
+                if (i !== -1) {
+                    allNodes.splice(i, 1)
+                }
+            }
+        }
+
+        await global.sleep(30000)
+        if (Math.random() < 0.5) {
+            void shareUrl()
+            void getNodes()
+        }
+    }
+}
+function getPort() {
+    return port
+}
+
+module.exports = {
+    runServer,
+    checkAllNodes,
+    get,
+    getPort,
+    getNodes
 }

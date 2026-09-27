@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>New Tab</title>
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        .title {
+            font-size: 40px;
+            text-align: center;
+            margin-top: 20%;
+        }
+        .mainSearch {
+            width: 50%;
+            height: 30px;
+            color: #dfe6ed;
+        }
+        .mainPage {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="mainPage">
+    <p class="title">Mesh Web</p>
+    <input class="mainSearch" id="urlInput" placeholder="Search Mesh or type a URL">
+    <p style="font-size: 24px; margin-top: 25vh; text-align: left">How .mesh Domains Work</p>
+    <p style="font-size: 20px; margin: 0 96px 96px 96px; text-align: left">
+        A .mesh domain can be registered with computational power,
+        with a minimum difficulty of 31 bits. The domain is registered onto
+        a seed, which acts as a password and allows switching the endpoint.
+        To change the seed of a domain, it has to be re-mined with a difficulty
+        higher than that of the previous owner. <a href="domain.html" style="color: dodgerblue">Register domain</a>
+    </p>
+</div>
+
+</body>
+<script>
+    async function setUrl(url) {
+        window.mesh.setUrl(url)
+    }
+
+    let urlInput = document.getElementById("urlInput")
+
+    urlInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+            console.log(urlInput.value.trim())
+            setUrl(urlInput.value.trim())
+        }
+    })
+</script>
+</html>

@@ -1,12 +1,8 @@
-const { app, BrowserWindow, powerMonitor, globalShortcut} = require("electron")
+const { app, BrowserWindow, powerMonitor, globalShortcut, nativeTheme } = require("electron")
 const path = require("path")
 const fs = require("fs")
 const http = require("node:http")
 const { spawn } = require("node:child_process")
-const main = require("./mainlogic")
-
-let server = null; let port = null
-let tunnelProcess = null; let tunnelUrl = null
 
 app.commandLine.appendSwitch("password-store", "basic")
 app.commandLine.appendSwitch("use-mock-keychain")
@@ -17,7 +13,12 @@ app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion")
 
 const dataDir = app.getPath("userData")
 process.env.userPath = dataDir
+global.dataDir = dataDir
 fs.mkdirSync(dataDir, { recursive: true })
+
+const main = require("./mainlogic")
+const sync = require("./js/sync.js")
+const storage = require("./js/storage.js")
 
 let win = null
 let reloading = false
@@ -52,17 +53,16 @@ function scheduleWakeReload() {
 
 function createWindow() {
     win = new BrowserWindow({
-        width: 750,
-        height: 775,
         icon: path.join(__dirname, "assets", "mesh-icon.png"),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
             backgroundThrottling: false,
-            preload: path.join(__dirname, "clear.js")
+            webviewTag: true
         }
     })
 
+    win.maximize()
     win.loadFile("index.html")
 
     win.webContents.on("did-finish-load", () => {
@@ -78,6 +78,27 @@ function createWindow() {
         reloadWindow()
     })
 
+    win.webContents.on("did-attach-webview", (event, webContents) => {
+        webContents.on("before-input-event", (event, input) => {
+            if (input.control || input.meta && ["r", "w"].includes(input.key.toLowerCase())) {
+                event.preventDefault()
+            }
+            win.webContents.send("shortcut", input)
+        })
+
+        webContents.setWindowOpenHandler(({ url }) => {
+            win.webContents.send("new-tab-url", url)
+            return { action: "deny" }
+        })
+    })
+
+    win.webContents.on("before-input-event", (event, input) => {
+        if (input.control || input.meta && ["r", "w"].includes(input.key.toLowerCase())) {
+            event.preventDefault()
+        }
+        win.webContents.send("shortcut", input)
+    })
+
     win.on("closed", () => {
         win = null
         main.attachWindow(win)
@@ -86,14 +107,6 @@ function createWindow() {
 
 app.whenReady().then(async () => {
     createWindow()
-
-    powerMonitor.on("resume", () => {
-        // scheduleWakeReload()
-    })
-
-    powerMonitor.on("unlock-screen", () => {
-        // scheduleWakeReload()
-    })
 })
 
 app.on("activate", () => {
@@ -107,14 +120,11 @@ app.on("window-all-closed", (event) => {
 app.on("will-quit", () => {
     globalShortcut.unregisterAll()
 })
+app.on("before-quit", () => {
+    storage.saveDomains()
+})
 
 powerMonitor.on("resume", async () => {
-    main.setStop(true)
-    await sleep(5000)
-    try {
-        await main.startLoad()
-    }
-    catch (error) {console.log(`error in resume: ${error}`)}
-    main.setStop(false)
-    console.log("this is here!!!")
+    await global.sleep(5000)
+    void sync.sync()
 })

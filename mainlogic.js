@@ -3,6 +3,17 @@ const { globalShortcut } = require("electron")
 const fs = require("fs")
 const vm = require("vm")
 const path = require("path")
+const network = require("./js/networking.js")
+const storage = require("./js/storage.js")
+const sync = require("./js/sync.js")
+require("./js/utils.js")
+require("./js/new.js")
+require("./js/mining.js")
+
+global.domains = []
+global.allNodes = []
+global.privateKey = null
+global.publicKey = null
 
 let win = null
 let appStarted = false
@@ -12,69 +23,12 @@ global.__dirname = __dirname
 
 async function attachWindow(window) {
     win = window
-    if (!win) {return}
-
-    if (appStarted) {
-        // await saveSession()
-        await loadSession()
-        void refresh(true)
-    }
 }
 
-function loadScript(p) {
-    let fullPath = path.join(__dirname, p)
-    let code = fs.readFileSync(fullPath, "utf-8")
-
-    vm.runInThisContext(code, {
-        filename: fullPath
-    })
-}
-
-let s = false
-let peerManage = false
-async function start() {
-    if (!s) {s = true}
-    else {return}
-    initContacts()
-    try {
-        void runServer()
-        stop = true
-        void refresh()
-        void mineLoop()
-        void updateBatteryLevel()
-        void manageActivePeers()
-    }
-    catch (error) {
-        console.log(`on start: ${error}`)
-        s = false
-    }
-}
-async function logIn(seed) {
-    seedToAddress(seed)
-    style("logInPanel", "display", "none")
-    style("mainPanel", "display", "flex")
-    await sleep(50)
-    if (!noStart) {await start()}
-    else {await refresh(true)}
-}
-async function logOut() {
-    style("logInPanel", "display", "flex")
-    style("mainPanel", "display", "none")
-    noStart = true
-    edit("walletSeedInput", "value", "")
-    privateKey = null
-    void saveSession()
-}
-global.logIn = logIn
-global.logOut = logOut
 
 let ss = null
-function startApp(window) {
+async function startApp(window) {
     if (appStarted) {return}
-    globalShortcut.register("CommandOrControl+Shift+D", () => {
-        callRenderer("toggleDebug")
-        console.log("DEBUG")
-    })
     appStarted = true
     win = window
 
@@ -83,42 +37,20 @@ function startApp(window) {
     global.style = style
     global.value = value
     global.sendToRenderer = sendToRenderer
-    global.start = start
 
-    loadScript("gpuMiner.js")
-    loadScript("js/globals.js")
-    loadScript("js/verify.js")
-    loadScript("js/getChainData.js")
-    loadScript("js/storage.js")
-    loadScript("js/networking.js")
-    loadScript("js/loops.js")
-    loadScript("js/utils.js")
+    await network.getNodes()
+    void sync.sync()
+    void network.runServer()
+    void network.checkAllNodes()
 
-    void loadSession()
-    void loadNodes()
-    void updateDebug()
-    void start()
     if (ss === null) {
         ss = setInterval(() => {
-            void saveSession()
-            void saveNodes()
-        }, 10_000)
-        let lastMempool = ""
-        setInterval(() => {
-            let currentMempool = mempool.join("\n")
-            if (currentMempool === lastMempool) {return}
-            mempool.sort((a,b) => {
-                a = Number(a.split("||")[0].split("|")[4])
-                b = Number(b.split("||")[0].split("|")[4])
-                return b - a
-            })
-            lastMempool = mempool.join("\n")
-        }, 500)
+            if (global.domains !== []) {
+                storage.saveDomains()
+            }
+        }, 30_000)
     }
 }
-
-loadScript("js/start.js")
-global.startLoad = startLoad
 
 ipcMain.on("main:run", (event, code) => {
     try {
@@ -170,12 +102,7 @@ async function value(id) {
     }
 }
 
-function setStop(value) {
-    stop = value
-}
 module.exports = {
     startApp,
-    attachWindow,
-    setStop,
-    startLoad
+    attachWindow
 }
