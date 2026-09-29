@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Domain Not Found</title>
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        a {
+            color: dodgerblue;
+        }
+    </style>
+</head>
+<body>
+    <p id="info" style="margin: 128px; font-size: 20px"></p>
+</body>
+<script>
+	let params = new URLSearchParams(location.search)
+    let name = params.get("name")
+    name = name.replace("https://", "")
+    document.getElementById("info").innerHTML = `
+        404 Not Found<br><br>
+        The domain ${name} is not registered.<br>
+        <a href="search.html">Go back to homepage</a><br>
+        <a href="domain.html?name=${name}">Register domain</a>
+    `
+</script>
+</html>

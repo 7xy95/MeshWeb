@@ -19,6 +19,7 @@ fs.mkdirSync(dataDir, { recursive: true })
 const main = require("./mainlogic")
 const sync = require("./js/sync.js")
 const storage = require("./js/storage.js")
+const network = require("./js/networking.js")
 
 let win = null
 let reloading = false
@@ -53,7 +54,6 @@ function scheduleWakeReload() {
 
 function createWindow() {
     win = new BrowserWindow({
-        icon: path.join(__dirname, "assets", "mesh-icon.png"),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -121,7 +121,9 @@ app.on("will-quit", () => {
     globalShortcut.unregisterAll()
 })
 app.on("before-quit", () => {
-    storage.saveDomains()
+    if (global.domains !== []) {
+        storage.saveDomains()
+    }
 })
 
 powerMonitor.on("resume", async () => {

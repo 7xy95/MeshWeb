@@ -5,10 +5,9 @@ const { FuseV1Options, FuseVersion } = require("@electron/fuses");
 module.exports = {
   packagerConfig: {
     asar: true,
-    appBundleId: "com.sevenxy.mesh",
+    appBundleId: "com.sevenxy.meshWeb",
     appCategoryType: "public.app-category.utilities",
-    name: "Mesh",
-    icon: path.resolve(__dirname, "assets", "mesh-icon"),
+    name: "Mesh Web",
     extraResource: [
       "bin"
     ]

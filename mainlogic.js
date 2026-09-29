@@ -39,9 +39,8 @@ async function startApp(window) {
     global.sendToRenderer = sendToRenderer
 
     await network.getNodes()
-    void sync.sync()
     void network.runServer()
-    void network.checkAllNodes()
+    await network.checkAllNodes()
 
     if (ss === null) {
         ss = setInterval(() => {

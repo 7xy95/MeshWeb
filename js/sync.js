@@ -18,9 +18,16 @@ async function sync() {
         return
     }
 
-    for (let i = 0; i++; i < 3) {
+    let f = 0
+    for (let i = 0; i < 3; i++) {
         let d = await reqRandNode()
-        if (d === null) {i--; continue}
+        if (d === null) {
+            if (f<10) {
+                i--
+            }
+            f++
+            continue
+        }
         for (let domain of d) {
             global.newDomain(domain)
         }

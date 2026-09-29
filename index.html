@@ -275,7 +275,8 @@
 				urlInput.value = `mesh://${name}`
             }
 			else {
-				urlInput.value = `mesh://${name}?${params}`
+				name = `mesh://${name}?${params}`
+				urlInput.value = name
             }
             return
         }
@@ -288,10 +289,8 @@
     })
 
     async function parseUrlInput(url) {
-        console.log(`in parse url, url: ${url}`)
         if (url.startsWith("mesh://")) {
             setMainPageUrl(url.slice(7))
-            console.log(url.slice(7))
             return
         }
 
@@ -300,7 +299,13 @@
         }
 
         if (isMeshUrl(url)) {
-            page.src = await get(`global.domainToEndpoint(${JSON.stringify(url)})`)
+            let domain = await get(`global.domainToEndpoint(${JSON.stringify(url)})`)
+            if (domain === url) {
+				setMainPageUrl(`notFound?name=${domain}`)
+            }
+			else {
+				page.src = domain
+            }
         }
         else if (url.includes(".") && !url.includes(" ")) {
             page.src = url
@@ -320,7 +325,6 @@
         if (query) {path += "?" + query}
 
         page.src = new URL(path, window.location.href).href
-        console.log(`set main page: ${page.src}`)
     }
 
     function isMeshUrl(url) {

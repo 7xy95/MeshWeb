@@ -30,7 +30,7 @@ function verifyDomain(domain, alreadyRegistered, registrationIndex=null) {
             }
             if (BigInt(domain[4]) > BigInt(otherDomain[4])+1024n || BigInt(domain[4]) <= BigInt(otherDomain[4])) {return false}
         }
-        else if (domain[4] !== "0") {return false}
+        else if (BigInt(domain[4]) > 2147483648n) {return false}
 
         let data = domain[0] +"|"+ domain[3] +"|"+ domain[4]
 

@@ -48,7 +48,7 @@ function domainToEndpoint(domain) {
         endpoint.search = url.search
         endpoint.hash = url.hash
 
-        return endpoint.href
+        return endpoint.href.replace("/?", "?")
     }
     catch {
         return domain
@@ -62,7 +62,7 @@ function endpointToDomain(endpoint) {
     let domain = global.domains[index][0]
     let nEndpoint = global.domains[index][3]
 
-    return domain + endpoint.slice(nEndpoint.length)
+    return (domain + endpoint.slice(nEndpoint.length)).replace("/?", "?")
 }
 function getDomainDifficulty(domain) {
     let d = global.domains.find(item => item[0] === domain)

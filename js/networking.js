@@ -1,7 +1,6 @@
 const http = require("node:http")
 const { spawn} = require("node:child_process")
 const { app } = require("electron")
-const sync = require("./sync.js")
 const path = require("path")
 
 let server = null
@@ -114,21 +113,21 @@ async function broadcastNode(nodeUrl) {
 function getCloudflarePath() {
     if (process.platform === "win32") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "..", "bin", "win-x64", "cloudflared.exe")
+            return path.join(process.resourcesPath, "bin", "win-x64", "cloudflared.exe")
         }
 
         return path.join(__dirname, "..", "bin", "win-x64", "cloudflared.exe")
     }
     if (process.platform === "darwin" && process.arch === "arm64") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "..", "bin", "mac-arm64", "cloudflared")
+            return path.join(process.resourcesPath, "bin", "mac-arm64", "cloudflared")
         }
 
         return path.join(__dirname, "..", "bin", "mac-arm64", "cloudflared")
     }
     if (process.platform === "darwin" && process.arch === "x64") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "..", "bin", "mac-x64", "cloudflared")
+            return path.join(process.resourcesPath, "bin", "mac-x64", "cloudflared")
         }
 
         return path.join(__dirname, "..", "bin", "mac-x64", "cloudflared")
@@ -244,7 +243,7 @@ async function runServer() {
                 sendJSON(res, 200, {
                     ok: true
                 })
-                if (allNodes.includes(data.node) || data.node === tunnelUrl) {return}
+                if (global.allNodes.includes(data.node) || data.node === tunnelUrl) {return}
                 global.allNodes.push(data.node)
                 void broadcastNode(data.node)
                 return
@@ -275,6 +274,7 @@ async function runServer() {
                 let match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/)
                 if (!match) {return}
                 tunnelUrl = match[0] + "/"
+                global.tunnelUrl = tunnelUrl
                 console.log(`tunnel url: ${tunnelUrl}`)
                 gotUrl = true
                 return
@@ -301,8 +301,9 @@ async function runServer() {
             started = true
             await updateURL()
             await getNodes()
+            await checkAllNodes(true)
             await shareUrl()
-            void sync.sync()
+            void require("./sync.js").sync()
             void checkTunnel()
         }
         if (tunnelProcess) {return}
@@ -332,11 +333,14 @@ async function runServer() {
     }
 }
 
+let stopChecking = false
 async function checkTunnel() {
     while (true) {
         try {
-            if (tunnelProcess !== null && await get(tunnelUrl, "online") === null) {
+            if (stopChecking) {stopChecking = false; return}
+            if (tunnelProcess === null || await get(tunnelUrl, "online", 10) === null) {
                 tunnelProcess.kill()
+                stopChecking = true
             }
 
             await global.sleep(2500)
@@ -347,10 +351,10 @@ async function checkTunnel() {
     }
 }
 
-async function checkAllNodes() {
+async function checkAllNodes(once=false) {
     while (true) {
         let results = await Promise.all(
-            allNodes.map(async node => {
+            global.allNodes.map(async node => {
                 let data = await get(node, "online")
                 return {node: node, data: data}
             })
@@ -358,13 +362,13 @@ async function checkAllNodes() {
 
         for (let r of results) {
             if (!r.data || !r.data.ok) {
-                let i = allNodes.indexOf(r.node)
+                let i = global.allNodes.indexOf(r.node)
                 if (i !== -1) {
-                    allNodes.splice(i, 1)
+                    global.allNodes.splice(i, 1)
                 }
             }
         }
-
+        if (once) {return}
         await global.sleep(30000)
         if (Math.random() < 0.5) {
             void shareUrl()
@@ -381,5 +385,6 @@ module.exports = {
     checkAllNodes,
     get,
     getPort,
-    getNodes
+    getNodes,
+    tunnelUrl
 }
