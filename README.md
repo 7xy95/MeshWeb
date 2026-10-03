@@ -4,4 +4,4 @@ A technical description of how Mesh Web works is available here:
 For exact implementation details, looking at the source code is advised.
 
 ## License
-Lisenced under the MIT lisence. See [Lisense](LISENCE) for details.
+Licensed under the MIT license. See [License](LICENSE) for details.
