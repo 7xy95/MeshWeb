@@ -55,7 +55,7 @@ async function getNodes() {
         }
         catch (error) {return false}
     }
-    if (global.allNodes.length === 0) {await updateURL()}
+    if (global.allNodes.length === 0) {global.allNodes = ["https://node.meshcoin.org/"]}
     for (let i = 0; i<3; i++) {
         await g(global.allNodes[Math.floor(Math.random()*(global.allNodes.length))])
     }
@@ -110,30 +110,28 @@ async function broadcastNode(nodeUrl) {
     }
 }
 
-function getCloudflarePath() {
+function getTunnelPath(name="tunnel") {
     if (process.platform === "win32") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "bin", "win-x64", "cloudflared.exe")
+            return path.join(process.resourcesPath, "bin", "win-x64", `${name}.exe`)
         }
 
-        return path.join(__dirname, "..", "bin", "win-x64", "cloudflared.exe")
+        return path.join(__dirname, "..", "bin", "win-x64", `${name}.exe`)
     }
     if (process.platform === "darwin" && process.arch === "arm64") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "bin", "mac-arm64", "cloudflared")
+            return path.join(process.resourcesPath, "bin", "mac-arm64", name)
         }
 
-        return path.join(__dirname, "..", "bin", "mac-arm64", "cloudflared")
+        return path.join(__dirname, "..", "bin", "mac-arm64", name)
     }
     if (process.platform === "darwin" && process.arch === "x64") {
         if (app.isPackaged) {
-            return path.join(process.resourcesPath, "bin", "mac-x64", "cloudflared")
+            return path.join(process.resourcesPath, "bin", "mac-x64", name)
         }
 
-        return path.join(__dirname, "..", "bin", "mac-x64", "cloudflared")
+        return path.join(__dirname, "..", "bin", "mac-x64", name)
     }
-
-    throw new Error("Unsupported platform for cloudflared")
 }
 
 async function runServer() {
@@ -262,73 +260,68 @@ async function runServer() {
         }
     })
 
-    server.listen(0, "127.0.0.1", () => {
+    let isSpecial = false
+    server.listen(isSpecial ? 8787 : 0, isSpecial ? "127.0.0.1" : "0.0.0.0", async () => {
         port = server.address().port
-        startQuickTunnel()
+        if (isSpecial) {
+            tunnelUrl = "https://node.meshcoin.org/"
+            global.tunnelUrl = tunnelUrl
+            await getNodes()
+            await checkAllNodes(true)
+            await shareUrl()
+
+            void require("./sync.js").sync()
+        }
+        else {
+            startTunnel()
+        }
     })
-    function startQuickTunnel() {
-        let gotUrl = false; let works = false; let started = false
+    function startTunnel() {
+        let gotUrl = false
         async function tunnelOutput(text) {
             console.log(text)
             if (!gotUrl) {
-                let match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/)
-                if (!match) {return}
+                let match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trybore\.com/)
+                if (!match) {
+                    return
+                }
                 tunnelUrl = match[0] + "/"
                 global.tunnelUrl = tunnelUrl
                 console.log(`tunnel url: ${tunnelUrl}`)
                 gotUrl = true
-                return
+                await updateURL()
+                await getNodes()
+                await checkAllNodes(true)
+                await shareUrl()
+                void require("./sync.js").sync()
+                void checkTunnel()
             }
-            if (text.includes("precheck complete hard_fail=false")) {
-                await global.sleep(15000)
-                let data = await get(tunnelUrl, "online")
-                if (data === null) {
-                    console.log("did not respond")
-                    await global.sleep(5000)
-                    let data = await get(tunnelUrl, "online")
-                    if (data === null) {
-                        console.log("did not respond again")
-                        tunnelProcess.kill()
-                        return
-                    }
-                    console.log("responded")
-                    works = true
-                    return
-                }
-                works = true
-            }
-            if (!gotUrl || !works || started) {return}
-            started = true
-            await updateURL()
-            await getNodes()
-            await checkAllNodes(true)
-            await shareUrl()
-            void require("./sync.js").sync()
-            void checkTunnel()
         }
         if (tunnelProcess) {return}
         if (!port) {return}
 
-        let cloudflarePath = getCloudflarePath()
-        tunnelProcess = spawn(cloudflarePath, [
-            "tunnel",
-            "--url",
-            `http://127.0.0.1:${port}`
-        ])
+        const pty = require("node-pty")
 
-        tunnelProcess.stdout.on("data", data => {
-            tunnelOutput(data.toString())
-        })
-        tunnelProcess.stderr.on("data", data => {
-            tunnelOutput(data.toString())
+        tunnelProcess = pty.spawn(
+            getTunnelPath(),
+            [`-u=http://127.0.0.1:${port}`],
+            {
+                name: "xterm-256color",
+                cols: 80,
+                rows: 24
+            }
+        )
+
+        tunnelProcess.onData(data => {
+            void tunnelOutput(data)
         })
 
-        tunnelProcess.on("close", async c => {
-            console.log(`tunnel closed: ${c}`)
+        tunnelProcess.onExit(({exitCode, signal}) => {
+            console.log(`tunnel closed: ${exitCode}, signal: ${signal}`)
             tunnelProcess = null
             tunnelUrl = null
-            await sleep(5000)
-            startQuickTunnel()
+
+            setTimeout(startTunnel, 5000)
         })
     }
 }
@@ -351,29 +344,35 @@ async function checkTunnel() {
     }
 }
 
+let checking = false
 async function checkAllNodes(once=false) {
+    if (checking) {return}
+    checking = true
     while (true) {
-        let results = await Promise.all(
-            global.allNodes.map(async node => {
-                let data = await get(node, "online")
-                return {node: node, data: data}
-            })
-        )
+        try {
+            let results = await Promise.all(
+                global.allNodes.map(async node => {
+                    let data = await get(node, "online")
+                    return {node: node, data: data}
+                })
+            )
 
-        for (let r of results) {
-            if (!r.data || !r.data.ok) {
-                let i = global.allNodes.indexOf(r.node)
-                if (i !== -1) {
-                    global.allNodes.splice(i, 1)
+            for (let r of results) {
+                if (!r.data || !r.data.ok) {
+                    let i = global.allNodes.indexOf(r.node)
+                    if (i !== -1) {
+                        global.allNodes.splice(i, 1)
+                    }
                 }
             }
+            if (once) {return}
+            await global.sleep(30000)
+            if (Math.random() < 0.5) {
+                void shareUrl()
+                void getNodes()
+            }
         }
-        if (once) {return}
-        await global.sleep(30000)
-        if (Math.random() < 0.5) {
-            void shareUrl()
-            void getNodes()
-        }
+        catch {}
     }
 }
 function getPort() {

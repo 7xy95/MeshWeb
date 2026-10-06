@@ -3,7 +3,7 @@ const verify = require("./verify.js")
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
-function newDomain(domain) {
+function newDomain(domain, maxSequenceGap=16n) {
     if (domain.length !== 6) {return false}
     let index = global.domains.findIndex(item => item[0] === domain[0])
 
@@ -13,21 +13,21 @@ function newDomain(domain) {
         if (oDomain[1] === domain[1]) {
             if (
                 BigInt(domain[4]) > BigInt(oDomain[4]) &&
-                verify.verifyDomain(domain, true, index)
+                verify.verifyDomain(domain, true, index, maxSequenceGap)
             ) {
                 global.domains[index] = domain
                 return true
             }
         }
         else {
-            if (verify.verifyDomain(domain, true, index)) {
+            if (verify.verifyDomain(domain, true, index, maxSequenceGap)) {
                 global.domains[index] = domain
                 return true
             }
         }
     }
     else {
-        if (verify.verifyDomain(domain, false)) {
+        if (verify.verifyDomain(domain, false, maxSequenceGap)) {
             global.domains.push(domain)
             return true
         }

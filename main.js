@@ -54,6 +54,7 @@ function scheduleWakeReload() {
 
 function createWindow() {
     win = new BrowserWindow({
+        icon: path.join(__dirname, "assets", "icon.png"),
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -80,7 +81,7 @@ function createWindow() {
 
     win.webContents.on("did-attach-webview", (event, webContents) => {
         webContents.on("before-input-event", (event, input) => {
-            if (input.control || input.meta && ["r", "w"].includes(input.key.toLowerCase())) {
+            if (input.control || input.meta && ["r", "w", "q"].includes(input.key.toLowerCase())) {
                 event.preventDefault()
             }
             win.webContents.send("shortcut", input)
@@ -121,7 +122,7 @@ app.on("will-quit", () => {
     globalShortcut.unregisterAll()
 })
 app.on("before-quit", () => {
-    if (global.domains !== []) {
+    if (global.domains.length !== 0) {
         storage.saveDomains()
     }
 })
@@ -129,4 +130,5 @@ app.on("before-quit", () => {
 powerMonitor.on("resume", async () => {
     await global.sleep(5000)
     void sync.sync()
+    void network.getNodes()
 })

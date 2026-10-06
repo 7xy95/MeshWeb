@@ -26,6 +26,11 @@
         input {
             width: 30%;
         }
+        body {
+            background-color: #1c1c1c;
+            min-height: 100vh;
+            height: auto;
+        }
     </style>
 </head>
 <body>
@@ -61,6 +66,7 @@
 		document.getElementById("domainSearch").style.display = "none"
     }
 	else {
+		if (!name.endsWith(".mesh")) {name += ".mesh"}
 		document.getElementById("specificDomain").value = name
     }
 
@@ -98,7 +104,7 @@
         infoText.innerHTML = `
             Domain: ${domain[0]}<br>
             Endpoint: ${domain[3]}<br>
-            Registered with address: ${domain[1].split("-----")[2]}<br>
+            Registered with address: ${domain[1].split("-----")[2].replace("MCowBQYDK2VwAyEA", "").toString("hex").slice(0, 24)} ...<br>
             Difficulty: ${difficulty.toFixed(2)}<br>
             Est time to mine: ${getTime(estTime/4)}<br>
         `
@@ -133,7 +139,7 @@
 	async function changeEndpoint() {
 		let domain = name
 		let endpoint = document.getElementById("newEndpoint").value.trim()
-		if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://")) {
+		if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://") && !endpoint.startsWith("mesh://")) {
 			endpoint = "https://" + endpoint
 		}
 		run(`global.updateDomain(${JSON.stringify(domain)}, ${JSON.stringify(endpoint)}, ${JSON.stringify(document.getElementById("seed").value.trim())})`)

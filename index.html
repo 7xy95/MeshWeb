@@ -1,8 +1,9 @@
+<!--todo https://suggestqueries.google.com/complete/search?client=chrome&q=-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.0.0</title>
+    <title>Mesh Web v1.1.0</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -34,7 +35,7 @@
             box-sizing: border-box;
         }
         .tab {
-            width: min(20%, 220px);
+            width: min(20%, 230px);
             background-color: #2c2c2c;
             color: #dfe6ed;
             height: 32px;
@@ -87,10 +88,6 @@
 <body>
 <div class="tabs">
     <div class="tabIcons" id="tabIcons">
-<!--        <div class="tab">-->
-<!--            <p>New Tab</p>-->
-<!--            <button class="tabBtn">×</button>-->
-<!--        </div>-->
         <button class="tabBtn" id="newTabBtn">+</button>
     </div>
     <button id="back" class="topArrow">←</button>
@@ -127,6 +124,7 @@
 
 		let key = input.key.toLowerCase()
         if (key === "t") {
+			window.focus()
 			newTab()
         }
 		else if (key === "w") {
@@ -141,9 +139,13 @@
 		}
 		else if (key >= "1" && key <= "8") {
 			let i = Number(key)-1
-            if (tabs[i]) {selectTab(tabs[i])}
+            if (tabs[i]) {
+				window.focus()
+				selectTab(tabs[i])
+			}
         }
 		else if (key === "9") {
+			window.focus()
 			selectTab(tabs[tabs.length-1])
         }
     })
@@ -187,7 +189,7 @@
 
 		document.getElementById("tabIcons").insertBefore(tabIcon, document.getElementById("newTabBtn"))
 
-        let tab = {webview, tabIcon, title}
+        let tab = {webview, tabIcon, title, "mesh": false}
 
 
 		tabIcon.addEventListener("click", () => {
@@ -212,18 +214,26 @@
 		})
 		webview.addEventListener("did-navigate-in-page", (event) => {
 			if (tab !== activeTab) { return }
+			if (!event.isMainFrame) { return }
 			updateUrl(event.url)
 		})
-
 
         tabs.push(tab)
         selectTab(tab)
 
 		urlInput.value = url
 		parseUrlInput(url)
+
+        webview.addEventListener("dom-ready", () => {
+			if (activeTab === tab) {
+				tab.webview.focus()
+            }
+			webview.insertCSS(`html, body {background-color: white;}`)
+        })
     }
 	function selectTab(tab) {
 		activeTab = tab
+        activeTab.webview.focus()
 
         for (let t of tabs) {
 			t.webview.style.display = t === tab ? "flex" : "none"
@@ -253,8 +263,6 @@
     document.getElementById("newTabBtn").addEventListener("click", () => {
 		newTab()
 	})
-
-
     document.getElementById("back").addEventListener("click", () => {
 		if (page.canGoBack()) {
 			page.goBack()
@@ -280,7 +288,12 @@
             }
             return
         }
-        urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
+		if (activeTab.mesh) {
+			urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
+        }
+		else {
+			urlInput.value = u
+        }
     }
     urlInput.addEventListener("keydown", async (event) => {
         if (event.key === "Enter") {
@@ -289,6 +302,8 @@
     })
 
     async function parseUrlInput(url) {
+		activeTab.mesh = isMeshUrl(url)
+
         if (url.startsWith("mesh://")) {
             setMainPageUrl(url.slice(7))
             return
@@ -303,6 +318,9 @@
             if (domain === url) {
 				setMainPageUrl(`notFound?name=${domain}`)
             }
+			else if (domain.startsWith("mesh://")) {
+				setMainPageUrl(domain.slice(7))
+            }
 			else {
 				page.src = domain
             }
@@ -314,7 +332,7 @@
             setMainPageUrl("search")
         }
         else {
-            page.src = `https://www.google.com/search?q=${url.slice(8)}&udm=14`
+            page.src = `https://www.google.com/search?q=${url.slice(8)}`
         }
     }
 

@@ -10,7 +10,7 @@ function validDomain(value) {
     return /^[A-Za-z0-9.-]+$/.test(value) && !value.includes("..")
 }
 
-function verifyDomain(domain, alreadyRegistered, registrationIndex=null) {
+function verifyDomain(domain, alreadyRegistered, registrationIndex=null, sequenceNumberMaxIncrease=16n) {
     try {
         if (!validDomain(domain[0])) {return false}
         if (domain.length !== 6) {return false}
@@ -30,7 +30,7 @@ function verifyDomain(domain, alreadyRegistered, registrationIndex=null) {
             }
             if (BigInt(domain[4]) > BigInt(otherDomain[4])+1024n || BigInt(domain[4]) <= BigInt(otherDomain[4])) {return false}
         }
-        else if (BigInt(domain[4]) > 2147483648n) {return false}
+        else if (BigInt(domain[4]) > sequenceNumberMaxIncrease) {return false}
 
         let data = domain[0] +"|"+ domain[3] +"|"+ domain[4]
 

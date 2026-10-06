@@ -8,6 +8,12 @@ body {
     font-variant-numeric: tabular-nums;
     color: #dfe6ed;
 }
+p {
+    color: #dfe6ed;
+}
+pre {
+    color: #dfe6ed;
+}
 input {
     background-color: #3b3b3b;
     color: #dfe6ed;

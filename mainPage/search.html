@@ -12,8 +12,9 @@
         }
         .mainSearch {
             width: 50%;
-            height: 30px;
+            height: 25px;
             color: #dfe6ed;
+            flex-shrink: 0;
         }
         .mainPage {
             width: 100vw;
@@ -22,13 +23,18 @@
             flex-direction: column;
             align-items: center;
         }
+        a {
+            color: dodgerblue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
 <div class="mainPage">
     <p class="title">Mesh Web</p>
-    <input class="mainSearch" id="urlInput" placeholder="Search Mesh or type a URL">
+    <input class="mainSearch" id="urlInput" placeholder="Search Mesh or type a URL" autofocus>
     <p style="font-size: 24px; margin-top: 25vh; text-align: left">How .mesh Domains Work</p>
     <p style="font-size: 20px; margin: 0 96px 96px 96px; text-align: left">
         A .mesh domain can be registered with computational power,
@@ -36,7 +42,7 @@
         a seed, which acts as a password and allows switching the endpoint.
         To change the seed of a domain, it has to be re-mined with a difficulty
         higher than that of the previous owner. <a href="domain.html" style="color: dodgerblue">Register domain</a>.
-        <a href="docs.mesh" style="color: dodgerblue">View full documentation</a>
+        <a onclick="setUrl('docs.mesh')" >View full documentation</a>.
     </p>
 </div>
 

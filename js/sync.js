@@ -29,7 +29,7 @@ async function sync() {
             continue
         }
         for (let domain of d) {
-            global.newDomain(domain)
+            global.newDomain(domain, 2147483648n)
         }
     }
     storage.saveDomains()

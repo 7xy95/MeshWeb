@@ -11,7 +11,7 @@ require("./js/new.js")
 require("./js/mining.js")
 
 global.domains = []
-global.allNodes = []
+global.allNodes = ["https://node.meshcoin.org/"]
 global.privateKey = null
 global.publicKey = null
 
@@ -40,11 +40,11 @@ async function startApp(window) {
 
     await network.getNodes()
     void network.runServer()
-    await network.checkAllNodes()
+    void network.checkAllNodes()
 
     if (ss === null) {
         ss = setInterval(() => {
-            if (global.domains !== []) {
+            if (global.domains.length !== 0) {
                 storage.saveDomains()
             }
         }, 30_000)
