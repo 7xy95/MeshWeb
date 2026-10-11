@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <title>View Domain</title>
     <link rel="stylesheet" href="../main.css">
+    <link rel="icon" href="../assets/icon.png">
     <style>
+        input::placeholder {
+            color: #a5abb1;
+        }
         .webPage {
             width: 100%;
             height: 100%;
@@ -12,7 +16,6 @@
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-            font-family: "Times New Roman";
         }
         .header {
             font-size: 24px;
@@ -22,8 +25,9 @@
             font-size: 20px;
             margin-top: 14px;
             margin-bottom: 14px;
+            line-height: 24px;
         }
-        input {
+        input:not([type="checkbox"]) {
             width: 30%;
         }
         body {
@@ -35,26 +39,31 @@
 </head>
 <body>
 <div id="homePage" class="webPage" style="height: auto; padding-bottom: 0">
-    <p class="header" style="margin-bottom: 8px">Lookup domain:</p>
-    <input id="specificDomain" placeholder="Enter a .mesh domain">
+    <p class="header" style="margin-bottom: 8px">Enter domain:</p>
+    <input id="specificDomain" placeholder="Enter a .mesh domain" autofocus>
 </div>
 <div id="domainSearch" class="webPage">
     <p class="header" style="margin-top: 0">Domain Info:</p>
     <p class="text" id="domainInfo"></p>
     <br>
 
+    <label style="display: flex; align-items: center; margin: 0; padding: 0">
+        <p class="text">Hide Seeds: </p>
+        <input type="checkbox" onchange="hide(this.checked)" style="border-radius: 0; border: none">
+    </label>
+
     <p class="header">Mine Domain:</p>
     <p class="text">Enter endpoint:</p>
     <input id="endpoint">
-    <p class="text">Enter seed:</p>
+    <p class="text">Seed:</p>
     <input id="address" oninput="updatePrivateKey(this.value)">
     <button class="btn" id="mineBtn" onclick="toggleMining()" style="width: 150px; margin-bottom: 50px">Start Mining</button>
 
     <p class="header">Change Endpoint (requires seed):</p>
-    <p class="text">Seed:</p>
-    <input id="seed">
     <p class="text">New Endpoint:</p>
     <input id="newEndpoint">
+    <p class="text">Seed:</p>
+    <input id="seed">
     <button class="btn" id="newEndpointBtn" onclick="changeEndpoint()" style="width: 150px; margin-bottom: 100px">Change</button>
 
 </div>
@@ -84,7 +93,15 @@
         let infoText = document.getElementById("domainInfo")
         if (!domain.endsWith(".mesh")) {
 			domain += ".mesh"
-            if (editParams) {document.getElementById("specificDomain").value = domain}
+		}
+		domain = domain.toLowerCase().replaceAll(" ", "")
+		if (editParams) {
+			document.getElementById("specificDomain").value = domain
+
+			let url = new URL(location.href)
+			url.searchParams.set("name", domain)
+			history.replaceState(null, "", url)
+            name = domain
 		}
 
         domain = (await get('global.domains')).find(item => item[0] === domain)
@@ -104,7 +121,6 @@
         infoText.innerHTML = `
             Domain: ${domain[0]}<br>
             Endpoint: ${domain[3]}<br>
-            Registered with address: ${domain[1].split("-----")[2].replace("MCowBQYDK2VwAyEA", "").toString("hex").slice(0, 24)} ...<br>
             Difficulty: ${difficulty.toFixed(2)}<br>
             Est time to mine: ${getTime(estTime/4)}<br>
         `
@@ -175,6 +191,17 @@
 		setInterval(async () => {
 			await lookupDomain(name)
 		}, 1000)
+    }
+
+	function hide(hide) {
+		if (hide) {
+			document.getElementById("seed").type = "password"
+			document.getElementById("address").type = "password"
+        }
+		else {
+			document.getElementById("seed").type = "text"
+			document.getElementById("address").type = "text"
+		}
     }
 </script>
 </html>

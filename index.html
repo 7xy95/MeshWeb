@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.1.0</title>
+    <title>Mesh Web v1.2.0</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -14,7 +14,7 @@
             color: #dfe6ed;
             border: none;
             margin: 8px;
-            font-size: 16px;
+            font-size: 20px;
         }
         .topArrow:hover {
             color: #a5abb1;
@@ -35,7 +35,7 @@
             box-sizing: border-box;
         }
         .tab {
-            width: min(20%, 230px);
+            width: min(20%, 245px);
             background-color: #2c2c2c;
             color: #dfe6ed;
             height: 32px;
@@ -83,6 +83,21 @@
         .tab.active {
             background-color: #3b3b3b;
         }
+        .tabIcon {
+            width: 16px;
+            height: 16px;
+            margin-right: 6px;
+        }
+
+        #connection {
+            position: absolute;
+            right: 16px;
+            top: 49px;
+            margin: 0;
+            color: orangered;
+            font-family: Arial;
+            line-height: 24px;
+        }
     </style>
 </head>
 <body>
@@ -92,7 +107,8 @@
     </div>
     <button id="back" class="topArrow">←</button>
     <button id="forward" class="topArrow">→</button>
-    <input style="width: 50%; margin: 5px"  id="urlInput">
+    <input style="width: 50vw; margin: 5px" id="urlInput">
+    <p id="connection"></p>
 </div>
 <div id="pages"></div>
 <script>
@@ -168,43 +184,84 @@
     let activeTab = null
 	let urlInput = document.getElementById("urlInput")
 	let page = null
+    let draggedTab = null
 
-    function newTab(url = "mesh://search") {
+    async function newTab(url = "mesh://search") {
 		let webview = document.createElement("webview")
         webview.className = "page"
         webview.setAttribute("preload", "./webview.js")
 		webview.setAttribute("allowpopups", "")
+        webview.setAttribute("webpreferences", "disableDialogs=no")
         document.getElementById("pages").appendChild(webview)
 
+        let icon = document.createElement("img")
+        icon.className = "tabIcon"
         let tabIcon = document.createElement("div")
         tabIcon.className = "tab"
+        tabIcon.draggable = true
         let title = document.createElement("p")
         title.innerText = "New Tab"
         let closeBtn = document.createElement("button")
 		closeBtn.className = "tabBtn"
 		closeBtn.innerText = "×"
 
+        tabIcon.appendChild(icon)
         tabIcon.appendChild(title)
         tabIcon.appendChild(closeBtn)
 
 		document.getElementById("tabIcons").insertBefore(tabIcon, document.getElementById("newTabBtn"))
 
-        let tab = {webview, tabIcon, title, "mesh": false}
+        let tab = {webview, tabIcon, title, "mesh": false, "url": url}
 
 
 		tabIcon.addEventListener("click", () => {
 			selectTab(tab)
 		})
+        tabIcon.addEventListener("dragstart", () => {
+			draggedTab = tab
+			selectTab(draggedTab)
+        })
+        tabIcon.addEventListener("dragover", (event) => {
+			event.preventDefault()
+            event.clientY = 32
+        })
+        tabIcon.addEventListener("drop", (event) => {
+			event.preventDefault()
+
+            if (!draggedTab || draggedTab === tab) {return}
+
+			let from = tabs.indexOf(draggedTab)
+            let to = tabs.indexOf(tab)
+
+            tabs.splice(from, 1)
+            tabs.splice(to, 0, draggedTab)
+            for (let t of tabs) {
+				document.getElementById("tabIcons").insertBefore(t.tabIcon, document.getElementById("newTabBtn"))
+            }
+        })
+        tabIcon.addEventListener("dragend", () => {
+			draggedTab = null
+        })
 		closeBtn.addEventListener("click", event => {
 			event.stopPropagation()
 			deleteTab(tab)
 		})
+        webview.addEventListener("page-favicon-updated", event => {
+			if (event.favicons.length > 0) {
+				icon.src = event.favicons[0]
+            }
+        })
 		webview.addEventListener("page-title-updated", event => {
 			title.innerText = event.title || "New Tab"
 		})
-		webview.addEventListener("did-navigate", (event) => {
+		webview.addEventListener("did-navigate", async (event) => {
 			if (tab !== activeTab) { return }
-			updateUrl(event.url)
+			await updateUrl(event.url)
+
+            let historyUrl = activeTab.mesh ? urlInput.value : event.url
+			if (event.url !== "" && !event.url.startsWith("file://")) {
+				run(`require("./js/storage.js").addHistory(${JSON.stringify(historyUrl)})`)
+			}
 		})
 		webview.addEventListener("ipc-message", event => {
 			if (tab !== activeTab) { return }
@@ -217,18 +274,48 @@
 			if (!event.isMainFrame) { return }
 			updateUrl(event.url)
 		})
+        webview.addEventListener("will-navigate", (event) => {
+			if (isMeshUrl(event.url)) {
+				event.preventDefault()
+                parseUrlInput(event.url)
+            }
+        })
 
         tabs.push(tab)
         selectTab(tab)
 
 		urlInput.value = url
-		parseUrlInput(url)
+		await parseUrlInput(url)
 
-        webview.addEventListener("dom-ready", () => {
+        webview.addEventListener("dom-ready", async () => {
 			if (activeTab === tab) {
 				tab.webview.focus()
             }
-			webview.insertCSS(`html, body {background-color: white;}`)
+
+			void webview.executeJavaScript(`
+                window.prompt = function(message, defaultValue = "") {
+                    if (defaultValue !== "") {
+                        return defaultValue
+                    }
+                    return null
+                }
+            `)
+
+			let wantsDark = await webview.executeJavaScript(`
+                (() => {
+                    let style = getComputedStyle(document.documentElement)
+                    let meta = document.querySelector('meta[name="color-scheme"]')
+
+                    return style.colorScheme.includes("dark") ||
+                           meta?.content.includes("dark") ||
+                           false
+                })()`)
+            if (wantsDark) {
+				void webview.insertCSS(`html, body {background-color: #0d1116;}`)
+            }
+			else {
+				void webview.insertCSS(`html, body {background-color: white;}`)
+            }
         })
     }
 	function selectTab(tab) {
@@ -259,7 +346,23 @@
         }
     }
 
-	newTab()
+	function saveTabs() {
+		let savedTabs = tabs.map(tab => {return tab.url})
+
+        localStorage.setItem("tabs", JSON.stringify(savedTabs))
+    }
+	async function loadTabs() {
+		let savedTabs = JSON.parse(localStorage.getItem("tabs") || "[]")
+        if (savedTabs.length === 0) {
+			void newTab()
+            return
+        }
+		for (let url of savedTabs) {
+			await newTab(url)
+        }
+    }
+
+	loadTabs()
     document.getElementById("newTabBtn").addEventListener("click", () => {
 		newTab()
 	})
@@ -275,6 +378,7 @@
 	})
 
     async function updateUrl(u) {
+		if (!u) {return}
         let url = new URL(u)
         if (url.protocol === "file:" && url.pathname.endsWith(".html") && url.pathname.includes("mainPage/")) {
             let name = url.pathname.match(/mainPage\/([^/]+)\.html$/)[1]
@@ -290,6 +394,9 @@
         }
 		if (activeTab.mesh) {
 			urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
+            if (activeTab.webview.src !== u) {
+				activeTab.webview.src = u
+            }
         }
 		else {
 			urlInput.value = u
@@ -303,6 +410,7 @@
 
     async function parseUrlInput(url) {
 		activeTab.mesh = isMeshUrl(url)
+        activeTab.url = url
 
         if (url.startsWith("mesh://")) {
             setMainPageUrl(url.slice(7))
@@ -332,7 +440,7 @@
             setMainPageUrl("search")
         }
         else {
-            page.src = `https://www.google.com/search?q=${url.slice(8)}`
+            page.src = `https://www.google.com/search?q=${encodeURIComponent(url.slice(8))}`
         }
     }
 
@@ -358,6 +466,23 @@
         }
     }
 
+	let connection = false
+	setInterval(async () => {
+		let nodes = await get('global.allNodes')
+        let tunnel = await get('global.tunnelUrl')
+        if (nodes.length === 0 || tunnel === null) {
+			connection = true
+			document.getElementById("connection").innerText = "Network connection lost"
+        }
+		else if (connection) {
+            connection = false
+			document.getElementById("connection").innerText = ""
+        }
+    }, 1500)
+
+    setInterval(() => {
+		saveTabs()
+    }, 5000)
 </script>
 </body>
 </html>

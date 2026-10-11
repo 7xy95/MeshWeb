@@ -1,6 +1,7 @@
 const crypto = require("node:crypto")
 
 const MIN_DIFFICULTY = 31
+const MAX_SEQ_NUM = 2n**31n
 
 function sha256(data) {
     return BigInt("0x" + crypto.createHash("sha256").update(data).digest().toString("hex"))
@@ -10,7 +11,7 @@ function validDomain(value) {
     return /^[A-Za-z0-9.-]+$/.test(value) && !value.includes("..")
 }
 
-function verifyDomain(domain, alreadyRegistered, registrationIndex=null, sequenceNumberMaxIncrease=16n) {
+function verifyDomain(domain, alreadyRegistered, registrationIndex=null, sequenceNumberMaxIncrease=65536n) {
     try {
         if (!validDomain(domain[0])) {return false}
         if (domain.length !== 6) {return false}
@@ -28,9 +29,12 @@ function verifyDomain(domain, alreadyRegistered, registrationIndex=null, sequenc
                 let otherHash = sha256(otherDomain[0] + otherDomain[1] + otherDomain[2])
                 if (otherHash <= hash) {return false}
             }
-            if (BigInt(domain[4]) > BigInt(otherDomain[4])+1024n || BigInt(domain[4]) <= BigInt(otherDomain[4])) {return false}
+            else if (BigInt(domain[4]) > BigInt(otherDomain[4])+1024n || BigInt(domain[4]) <= BigInt(otherDomain[4])) {
+                return false
+            }
         }
         else if (BigInt(domain[4]) > sequenceNumberMaxIncrease) {return false}
+        if (BigInt(domain[4]) > MAX_SEQ_NUM) {return false}
 
         let data = domain[0] +"|"+ domain[3] +"|"+ domain[4]
 

@@ -1,8 +1,11 @@
-const { app, BrowserWindow, powerMonitor, globalShortcut, nativeTheme } = require("electron")
+const { app, BrowserWindow, powerMonitor, globalShortcut,
+    nativeTheme,session } = require("electron")
 const path = require("path")
 const fs = require("fs")
 const http = require("node:http")
 const { spawn } = require("node:child_process")
+
+nativeTheme.themeSource = "dark"
 
 app.commandLine.appendSwitch("password-store", "basic")
 app.commandLine.appendSwitch("use-mock-keychain")
@@ -78,10 +81,13 @@ function createWindow() {
     win.webContents.on("unresponsive", () => {
         reloadWindow()
     })
+    win.webContents.on("will-attach-webview", (event, webPreferences) => {
+        webPreferences.disableDialogs = false
+    })
 
     win.webContents.on("did-attach-webview", (event, webContents) => {
         webContents.on("before-input-event", (event, input) => {
-            if (input.control || input.meta && ["r", "w", "q"].includes(input.key.toLowerCase())) {
+            if ((input.control || input.meta) && ["r", "w", "q"].includes(input.key.toLowerCase())) {
                 event.preventDefault()
             }
             win.webContents.send("shortcut", input)
@@ -107,6 +113,19 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+    let blocked = ["doubleclick.net", "googlesyndication.com", "googleadservices.com"]
+    session.defaultSession.webRequest.onBeforeRequest(
+        { urls: ["*://*/*"] },
+        (details, callback) => {
+            let host = null
+            try {host = new URL(details.url).hostname}
+            catch {callback({}); return}
+
+            let shouldBlock = blocked.some(domain => host === domain || host.endsWith("." + domain))
+            callback({cancel: shouldBlock})
+        }
+    )
+
     createWindow()
 })
 

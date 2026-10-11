@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>How Domains Work</title>
+    <link rel="icon" href="../assets/icon.png">
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        a {
+            color: dodgerblue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .title {
+            margin-left: 64px;
+            margin-bottom: 12px;
+            font-size: 30px;
+        }
+        .info {
+            margin: 0 20vw 16px 64px;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body>
+<p class="title" style="margin-top: 64px">Registration</p>
+<p class="info">
+    A .mesh domain is mapped to the endpoint selected by the owner.
+    To register a .mesh domain it has to be mined, which is the process
+    of making a computer guess numbers until one with a difficulty of at
+    least 31 bits is found (31 bits is about 2.147 billion attempts).
+    If it is already registered, you will have to beat the difficulty
+    set by the current owner<br><br>
+</p>
+<p class="title">Seed</p>
+<p class="info">
+    The seed acts as a unique password with which the endpoint can be
+    changed without re-mining the domain. A seed of at least 10 characters
+    with special characters is advised<br><br><br>
+
+    <a href="search.html">Go back to homepage</a><br>
+    <a onclick="setUrl('docs.mesh')">View full documentation</a>
+</p>
+</body>
+<script>
+	async function setUrl(url) {
+		window.mesh.setUrl(url)
+	}
+</script>
+</html>
