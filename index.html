@@ -1,9 +1,8 @@
-<!--todo https://suggestqueries.google.com/complete/search?client=chrome&q=-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.2.0</title>
+    <title>Mesh Web v1.2.2</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -98,13 +97,25 @@
             font-family: Arial;
             line-height: 24px;
         }
+        #domainInfo {
+            position: absolute;
+            left: 16px;
+            bottom: 10px;
+
+            color: #dfe6ed;
+            font-size: 16px;
+            text-decoration: none;
+            white-space: nowrap;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 <div class="tabs">
     <div class="tabIcons" id="tabIcons">
-        <button class="tabBtn" id="newTabBtn">+</button>
+        <button class="tabBtn" id="newTabBtn" style="margin-right: 28px;">+</button>
     </div>
+    <a id="domainInfo">Domain Info</a>
     <button id="back" class="topArrow">←</button>
     <button id="forward" class="topArrow">→</button>
     <input style="width: 50vw; margin: 5px" id="urlInput">
@@ -280,6 +291,10 @@
                 parseUrlInput(event.url)
             }
         })
+        webview.addEventListener("did-fail-load", (event) => {
+			if (!event.isMainFrame || event.errorCode === -3) {return}
+			setMainPageUrl(`error?name=${encodeURIComponent(event.validatedURL)}&reason=${encodeURIComponent(event.errorDescription)}`)
+        })
 
         tabs.push(tab)
         selectTab(tab)
@@ -299,6 +314,7 @@
                     }
                     return null
                 }
+                true
             `)
 
 			let wantsDark = await webview.executeJavaScript(`
@@ -378,6 +394,8 @@
 	})
 
     async function updateUrl(u) {
+		let domainLink = document.getElementById("domainInfo")
+		domainLink.style.display = "none"
 		if (!u) {return}
         let url = new URL(u)
         if (url.protocol === "file:" && url.pathname.endsWith(".html") && url.pathname.includes("mainPage/")) {
@@ -393,13 +411,29 @@
             return
         }
 		if (activeTab.mesh) {
-			urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
-            if (activeTab.webview.src !== u) {
-				activeTab.webview.src = u
+			if (activeTab.meshDomain) {
+				urlInput.value = activeTab.meshDomain
             }
+			else {
+				urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
+            }
+			if (activeTab.webview.src !== u) {
+				activeTab.webview.src = u
+			}
         }
 		else {
 			urlInput.value = u
+        }
+
+		if (isMeshUrl(urlInput.value)) {
+			domainLink.style.display = "flex"
+            let d = urlInput.value
+            d = d.replaceAll("https://", "").replaceAll("http://", "")
+            d = d.split("/")[0]
+            domainLink.onclick = () => setMainPageUrl(`domain?name=${d}`)
+        }
+		else {
+			domainLink.style.display = "none"
         }
     }
     urlInput.addEventListener("keydown", async (event) => {
@@ -423,6 +457,7 @@
 
         if (isMeshUrl(url)) {
             let domain = await get(`global.domainToEndpoint(${JSON.stringify(url)})`)
+			if (domain.endsWith("/")) {domain = domain.slice(0, domain.length-1)}
             if (domain === url) {
 				setMainPageUrl(`notFound?name=${domain}`)
             }
@@ -432,6 +467,7 @@
 			else {
 				page.src = domain
             }
+			activeTab.meshDomain = url
         }
         else if (url.includes(".") && !url.includes(" ")) {
             page.src = url

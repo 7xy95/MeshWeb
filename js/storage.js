@@ -55,8 +55,8 @@ function clearHistory() {
 function checkUrl(url) {
 	if (url.startsWith("mesh://")) {return false}
 	if (url.length > 128) {return false}
-	if (url.startsWith("accounts.google.com/")) {return false}
-	if (url.startsWith("google.com/search")) {return false}
+	if (url.includes("accounts.google.com/")) {return false}
+	if (url.includes("google.com/search")) {return false}
 	return true
 }
 

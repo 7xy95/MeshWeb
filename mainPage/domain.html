@@ -88,8 +88,15 @@
 	async function setUrl(url) {
 		window.mesh.setUrl(url)
 	}
+	let hashrate = 200_000_000
+	async function updateEstimate() {
+		if (!(document.getElementById("mineBtn").innerText === "Stop Mining")) {return}
+        let lastT = (await get('global.getData()')).lastT
+        hashrate = Math.floor(1000/lastT * 50_000_000)
+    }
 
     async function lookupDomain(domain, editParams=false) {
+		await updateEstimate()
         let infoText = document.getElementById("domainInfo")
         if (!domain.endsWith(".mesh")) {
 			domain += ".mesh"
@@ -116,13 +123,13 @@
         }
 
         let difficulty = Number(await get(`global.getDomainDifficulty(${JSON.stringify(domain[0])})`))
-        let estTime = 2**difficulty / 50_000_000
+        let estTime = 2**difficulty / hashrate
 
         infoText.innerHTML = `
             Domain: ${domain[0]}<br>
             Endpoint: ${domain[3]}<br>
             Difficulty: ${difficulty.toFixed(2)}<br>
-            Est time to mine: ${getTime(estTime/4)}<br>
+            Est time to mine: ${getTime(estTime)}<br>
         `
     }
 
@@ -139,8 +146,9 @@
 			run("global.stopMining()")
 		}
 		else {
-			document.getElementById("mineBtn").innerText = "Stop Mining"
 			let endpoint = document.getElementById("endpoint").value.trim()
+			if (endpoint === "" || document.getElementById("address").value.trim() === "") {return}
+			document.getElementById("mineBtn").innerText = "Stop Mining"
 			if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://")) {
 				endpoint = "https://" + endpoint
 			}
@@ -155,6 +163,7 @@
 	async function changeEndpoint() {
 		let domain = name
 		let endpoint = document.getElementById("newEndpoint").value.trim()
+		if (endpoint === "" || document.getElementById("seed").value.trim() === "") {return}
 		if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://") && !endpoint.startsWith("mesh://")) {
 			endpoint = "https://" + endpoint
 		}

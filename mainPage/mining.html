@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Mining</title>
+    <link rel="icon" href="../assets/icon.png">
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        a {
+            color: dodgerblue;
+        }
+    </style>
+</head>
+<body>
+<p id="info" style="margin: 128px; font-size: 20px"></p>
+<button class="btn" id="mineBtn" onclick="stopMining()" style="width: 118px; margin-left: 128px; display: none">Stop Mining</button>
+</body>
+<script>
+	async function get(code) {
+		return await window.mesh.get(code)
+	}
+	function run(code) {
+		window.mesh.run(code)
+	}
+	async function setData() {
+		let miningData = await get('global.getData()')
+        if (miningData.domain === null) {
+			document.getElementById('mineBtn').style.display = "none"
+			document.getElementById("info").innerHTML = `
+			    No mining activity detected<br><br>
+			    <a href="search.html">Go back to homepage</a>
+			`
+        }
+		else {
+			document.getElementById("info").innerHTML = `
+			    Currently mined domain: ${miningData.domain}<br>
+			    Target difficulty: ${Number(miningData.best).toFixed(2)}<br><br>
+			    <a href="search.html">Go back to homepage</a>
+			`
+            document.getElementById('mineBtn').style.display = "flex"
+        }
+    }
+	function stopMining() {
+		run("global.stopMining()")
+        setData()
+    }
+
+	setData()
+	setInterval(() => {
+		setData()
+	}, 500)
+</script>
+</html>

@@ -147,7 +147,7 @@ app.on("before-quit", () => {
 })
 
 powerMonitor.on("resume", async () => {
-    await global.sleep(5000)
-    void sync.sync()
-    void network.getNodes()
+    await global.sleep(10000)
+    await network.getNodes()
+    await sync.sync()
 })

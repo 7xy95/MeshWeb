@@ -87,9 +87,11 @@
     </div>
     <div class="bottomInfo">
         <a class="linkToText" href="domain.html">Register domain</a>
+        <a class="linkToText" href="mining.html" style="margin-left: 32px">Manage mining</a>
         <a class="linkToText" href="howDomainsWork.html" style="margin-left: 32px">How domains work</a>
+        <a class="linkToText" onclick="setUrl('docs.mesh')" style="margin-left: 32px">View full documentation</a>
     </div>
-    <p class="version">v1.2.0</p>
+    <p class="version">v1.2.2</p>
 </div>
 </body>
 <script>
@@ -112,6 +114,7 @@
 	function autocomplete(input, suggestion) {
 		suggestion = simplifyUrl(suggestion)
 		if (!suggestion.startsWith(input)) {return}
+		if (suggestion[input.length] === " ") {return}
 		urlInput.value = suggestion
         urlInput.setSelectionRange(input.length, suggestion.length)
     }
@@ -152,18 +155,24 @@
         }
     })
     urlInput.addEventListener("input", async (event) => {
-		let input = urlInput.value.trim()
-		if (input === "") {
-			displaySuggestions([])
-		}
-		let data = await fetch(`https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(input)}`)
-		data = await data.json()
-        if (urlInput.value.trim() !== input) {return}
-        let suggestions = data[1]
-        suggestions = await addSuggestion(suggestions, input)
-		displaySuggestions(suggestions)
-        if (!event.inputType.startsWith("delete") && event.data !== " " && suggestions.length > 0) {
-			autocomplete(input, suggestions[0])
+		try {
+			let input = urlInput.value.trim()
+			if (input === "") {
+				displaySuggestions([])
+				return
+			}
+			let data = await fetch(`https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(input)}`)
+			data = await data.json()
+			if (urlInput.value.trim() !== input) {return}
+			let suggestions = data[1]
+			suggestions = await addSuggestion(suggestions, input)
+			displaySuggestions(suggestions)
+			if (!event.inputType.startsWith("delete") && event.data !== " " && suggestions.length > 0) {
+				autocomplete(input, suggestions[0])
+			}
+        }
+		catch (error) {
+			console.log(error)
         }
     })
 </script>

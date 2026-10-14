@@ -3,7 +3,7 @@ const verify = require("./verify.js")
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
-function newDomain(domain, maxSequenceGap=16n) {
+function newDomain(domain, maxSequenceGap=65536n) {
     if (domain.length !== 6) {return false}
     let index = global.domains.findIndex(item => item[0] === domain[0])
 
@@ -27,7 +27,7 @@ function newDomain(domain, maxSequenceGap=16n) {
         }
     }
     else {
-        if (verify.verifyDomain(domain, false, maxSequenceGap)) {
+        if (verify.verifyDomain(domain, false, null, maxSequenceGap)) {
             global.domains.push(domain)
             return true
         }

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Can't Be Reached</title>
+    <link rel="icon" href="../assets/icon.png">
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        a {
+            color: dodgerblue;
+        }
+    </style>
+</head>
+<body>
+    <p id="info" style="margin: 128px; font-size: 20px"></p>
+</body>
+<script>
+	let params = new URLSearchParams(location.search)
+    let name = params.get("name")
+    let reason = params.get("reason")
+
+    if (name.startsWith("https://")) {name = name.replace("https://", "")}
+    name = name.slice(0, name.length-1)
+
+    document.getElementById("info").innerHTML = `
+        <div style="font-size: 32px">This site can't be reached</div><br><br>
+        The endpoint '${name}' could not be reached.<br><br>
+        <div style="font-size: 16px">${reason}</div>
+    `
+
+	async function isRegistered(name) {
+		let domains = await window.mesh.get("global.domains")
+		return domains.some(domain => domain[0] === name)
+	}
+	async function setUrl(url) {
+		window.mesh.setUrl(url)
+	}
+
+	setInterval(async () => {
+		if (await isRegistered(name.split("/")[0])) {
+			setUrl(name)
+		}
+    }, 500)
+</script>
+</html>

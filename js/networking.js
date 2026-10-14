@@ -2,6 +2,7 @@ const http = require("node:http")
 const { spawn} = require("node:child_process")
 const { app } = require("electron")
 const path = require("path")
+const {sync} = require("./sync");
 
 let server = null
 let port = null
@@ -352,7 +353,7 @@ async function checkAllNodes(once=false) {
         try {
             let results = await Promise.all(
                 global.allNodes.map(async node => {
-                    let data = await get(node, "online")
+                    let data = await get(node, "online", 6)
                     return {node: node, data: data}
                 })
             )
@@ -366,11 +367,13 @@ async function checkAllNodes(once=false) {
                 }
             }
             if (once) {return}
-            await global.sleep(30000)
             if (Math.random() < 0.5) {
                 void shareUrl()
                 void getNodes()
             }
+            void require("./sync.js").sync(1, false)
+
+            await global.sleep(30000)
         }
         catch {}
     }

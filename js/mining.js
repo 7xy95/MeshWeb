@@ -4,6 +4,7 @@ let stop = false
 let best = 0
 let domainTo = null
 let endpointTo = null
+let lastT = null
 async function mine(domain, endpoint) {
     domainTo = domain
     endpointTo = endpoint
@@ -25,7 +26,7 @@ async function mine(domain, endpoint) {
         }
 
         i += 50_000_000n
-        console.log(Date.now()-t, result.attempts)
+        lastT = Date.now()-t
     }
 }
 function stopMining() {
@@ -34,10 +35,10 @@ function stopMining() {
     endpointTo = null
     best = 0n
 }
-function getBest() {
-    return {"best": best, "domain": domainTo, "endpoint": endpointTo, "target": global.getDomainDifficulty(domainTo)}
+function getData() {
+    return {"best": best, "domain": domainTo, "endpoint": endpointTo, "lastT": lastT}
 }
 
 global.mine = mine
 global.stopMining = stopMining
-global.getBest = getBest
+global.getData = getData

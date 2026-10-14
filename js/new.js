@@ -9,7 +9,9 @@ async function createNewDomain(domain, endpoint, nonce) {
 
     if (index !== -1) {
         let oDomain = global.domains[index]
-        seqNumber = (BigInt(oDomain[4]) + 1n).toString()
+        if (oDomain[1] === global.publicKey) {
+            seqNumber = (BigInt(oDomain[4]) + 1n).toString()
+        }
     }
 
     let data = domain +"|"+ endpoint +"|"+ seqNumber
