@@ -35,6 +35,9 @@
             min-height: 100vh;
             height: auto;
         }
+        #changeStatus {
+            transform: translateY(-100px);
+        }
     </style>
 </head>
 <body>
@@ -65,7 +68,7 @@
     <p class="text">Seed:</p>
     <input id="seed">
     <button class="btn" id="newEndpointBtn" onclick="changeEndpoint()" style="width: 150px; margin-bottom: 100px">Change</button>
-
+    <p class="text" id="changeStatus"></p>
 </div>
 </body>
 <script>
@@ -112,24 +115,31 @@
 		}
 
         domain = (await get('global.domains')).find(item => item[0] === domain)
+
+        let isMining = document.getElementById("mineBtn").innerText === "Stop Mining"
+        let color = isMining ? 'green' : 'red'
+
         if (!domain) {
+			let estTime = 2**31 / hashrate
             infoText.innerHTML = `
                 Domain: ${name}<br>
-                Endpoint: Unregistered<br>
+                Endpoint: <span style="color: red">Unregistered</span><br>
                 Difficulty: 31<br>
-                Est time to mine: 15s<br>
+                Est time to mine: ${getTime(estTime)}<br>
+                Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}</span>
             `
             return
         }
 
-        let difficulty = Number(await get(`global.getDomainDifficulty(${JSON.stringify(domain[0])})`))
-        let estTime = 2**difficulty / hashrate
+		let difficulty = Number(await get(`global.getDomainDifficulty(${JSON.stringify(domain[0])})`))
+		let estTime = 2**difficulty / hashrate
 
         infoText.innerHTML = `
             Domain: ${domain[0]}<br>
             Endpoint: ${domain[3]}<br>
             Difficulty: ${difficulty.toFixed(2)}<br>
             Est time to mine: ${getTime(estTime)}<br>
+            Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}</span>
         `
     }
 
@@ -141,6 +151,7 @@
 	})
 
 	function toggleMining() {
+		lookupDomain(name)
 		if (document.getElementById("mineBtn").innerText === "Stop Mining") {
 			document.getElementById("mineBtn").innerText = "Start Mining"
 			run("global.stopMining()")
@@ -212,5 +223,21 @@
 			document.getElementById("address").type = "text"
 		}
     }
+
+	document.getElementById("seed").addEventListener("keyup", async () => {
+		let input = document.getElementById("seed").value.trim()
+        let pubKey = await get(`global.getPubKey(${JSON.stringify(input)})`)
+		let currentKey = (await get('global.domains')).find(item => item[0] === name)[1]
+        if (pubKey === currentKey) {
+			document.getElementById("changeStatus").innerHTML = `
+			    <span style="color: green">Seeds match</span>
+			`
+        }
+		else {
+			document.getElementById("changeStatus").innerHTML = `
+			    <span style="color: red">Invalid seed</span>
+			`
+        }
+    })
 </script>
 </html>

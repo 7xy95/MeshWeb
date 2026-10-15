@@ -417,11 +417,14 @@
 			else {
 				urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
             }
-			if (activeTab.webview.src !== u) {
-				activeTab.webview.src = u
-			}
+			// if (activeTab.webview.src !== u) {
+			// 	activeTab.webview.src = u
+			// }
         }
 		else {
+			if (await get(`global.endpointToDomain(${JSON.stringify(u)})`) !== activeTab.meshDomain) {
+				activeTab.mesh = false
+            }
 			urlInput.value = u
         }
 

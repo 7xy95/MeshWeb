@@ -27,7 +27,6 @@ async function createNewDomain(domain, endpoint, nonce) {
         })
     })
 }
-
 function newKeys(s) {
     s = crypto.createHash("sha256").update(s).digest()
 
@@ -41,7 +40,19 @@ function newKeys(s) {
 
     global.publicKey = crypto.createPublicKey(global.privateKey).export({type: "spki", format: "pem"})
 }
+function getPubKey(s) {
+    s = crypto.createHash("sha256").update(s).digest()
 
+    let privateDer = Buffer.concat([
+        Buffer.from("302e020100300506032b657004220420", "hex"), s
+    ])
+
+    let privateKey = crypto.createPrivateKey({
+        key: privateDer, format: "der", type: "pkcs8"
+    })
+
+    return crypto.createPublicKey(privateKey).export({type: "spki", format: "pem"})
+}
 function updateDomain(domain, endpoint, seed) {
     try {
         newKeys(seed)
@@ -58,3 +69,4 @@ function updateDomain(domain, endpoint, seed) {
 global.createNewDomain = createNewDomain
 global.newKeys = newKeys
 global.updateDomain = updateDomain
+global.getPubKey = getPubKey
