@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.2.2</title>
+    <title>Mesh Web v1.2.3</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -182,6 +182,15 @@
     async function get(code) {
         return await ipcRenderer.invoke("main:get", code)
     }
+	async function getSettings() {
+		return await get('global.settings')
+	}
+	async function isOnlyWindow() {
+		return await get("require('electron').BrowserWindow.getAllWindows().length === 1")
+    }
+	function closeWindow() {
+		run("require('electron').BrowserWindow.getFocusedWindow()?.close()")
+    }
 
     window.addEventListener("error", (error) => {
         console.log(error)
@@ -346,7 +355,7 @@
 		page = tab.webview
         updateUrl(page.src)
     }
-	function deleteTab(tab) {
+	async function deleteTab(tab) {
 		let index = tabs.indexOf(tab)
         if (index === -1) {return}
 
@@ -355,7 +364,11 @@
         tab.tabIcon.remove()
         tabs.splice(index, 1)
 
-        if (tabs.length === 0) {newTab(); return}
+        if (tabs.length === 0) {
+			if (await isOnlyWindow()) {void newTab()}
+			else {closeWindow()}
+            return
+		}
 
 		if (wasActive) {
 			selectTab(tabs[Math.min(index, tabs.length-1)])
@@ -378,7 +391,15 @@
         }
     }
 
-	loadTabs()
+	async function start() {
+		if (await isOnlyWindow()) {
+			void loadTabs()
+		}
+		else {
+			void newTab()
+		}
+    }
+	start()
     document.getElementById("newTabBtn").addEventListener("click", () => {
 		newTab()
 	})
@@ -479,7 +500,7 @@
             setMainPageUrl("search")
         }
         else {
-            page.src = `https://www.google.com/search?q=${encodeURIComponent(url.slice(8))}`
+            page.src = `${(await getSettings()).searchEngine}q=${encodeURIComponent(url.slice(8))}`
         }
     }
 

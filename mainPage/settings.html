@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Settings</title>
+    <link rel="icon" href="../assets/icon.png">
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        .title {
+            font-size: 28px;
+        }
+        .param {
+            font-size: 16px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+        }
+        body {
+            font-family: system-ui;
+            padding: 86px;
+        }
+        input {
+            width: 300px;
+            margin-left: 16px;
+        }
+        .checkbox {
+            width: 10px;
+            height: 10px;
+            background-color: #dfe6ed;
+        }
+    </style>
+</head>
+<body>
+    <p class="title">Settings</p>
+    <div class="param">
+        <p>Search engine:</p>
+        <input id="searchEngine" oninput="onInputChange('searchEngine')">
+    </div>
+    <div class="param">
+        <p>Save history:</p>
+        <input type="checkbox" class="checkbox" id="saveHistory" oninput="onTick('saveHistory')">
+    </div>
+</body>
+<script>
+	let settings = null
+	async function getSettings() {
+		settings = await window.mesh.get('global.settings')
+        console.log(settings)
+	}
+	async function saveNewSettings() {
+		window.mesh.run(`global.settings = ${JSON.stringify(settings)}`)
+    }
+
+    function onInputChange(name) {
+		settings[name] = document.getElementById(name).value
+        saveNewSettings()
+    }
+	function onTick(name) {
+		settings[name] = document.getElementById(name).checked
+		saveNewSettings()
+    }
+	async function init() {
+		await getSettings()
+		document.getElementById("searchEngine").value = settings.searchEngine
+		document.getElementById("saveHistory").checked = settings.saveHistory
+    }
+	init()
+</script>
+</html>

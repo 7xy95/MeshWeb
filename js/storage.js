@@ -3,7 +3,9 @@ const fs = require("fs")
 
 const dataDir = process.env.userPath
 const session = path.join(dataDir, "domains.json")
+const peers = path.join(dataDir, "peers.json")
 const history = path.join(dataDir, "history.json")
+const settings = path.join(dataDir, "settings.json")
 
 function getDomains() {
 	try {
@@ -18,6 +20,39 @@ function getDomains() {
 }
 function saveDomains() {
 	fs.writeFileSync(session, JSON.stringify(global.domains))
+}
+
+function getPeers() {
+	try {
+		if (!fs.existsSync(peers)) {
+			fs.writeFileSync(peers, JSON.stringify(["https://node.meshcoin.org/"]))
+		}
+		return JSON.parse(fs.readFileSync(peers, "utf-8"))
+	}
+	catch {
+		return ["https://node.meshcoin.org/"]
+	}
+}
+function savePeers() {
+	fs.writeFileSync(peers, JSON.stringify(global.allNodes))
+}
+
+function getSettings() {
+	let defaultSettings = {
+		"searchEngine": "https://www.google.com/search?",
+		"saveHistory": true}
+	try {
+		if (!fs.existsSync(settings)) {
+			fs.writeFileSync(settings, JSON.stringify(defaultSettings))
+		}
+		return JSON.parse(fs.readFileSync(settings, "utf-8"))
+	}
+	catch {
+		return defaultSettings
+	}
+}
+function saveSettings() {
+	fs.writeFileSync(settings, JSON.stringify(global.settings))
 }
 
 function getHistory() {
@@ -36,6 +71,7 @@ function saveHistory() {
 	console.log(global.searchHistory)
 }
 function addHistory(url) {
+	if (!global.settings.saveHistory) {return}
 	if (!checkUrl(url)) {return}
 	if (url.includes("://")) {
 		url = url.split("://")[1]
@@ -63,8 +99,12 @@ function checkUrl(url) {
 module.exports = {
 	getDomains,
 	saveDomains,
+	getPeers,
+	savePeers,
 	getHistory,
 	saveHistory,
+	getSettings,
+	saveSettings,
 	addHistory,
 	clearHistory
 }

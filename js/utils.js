@@ -73,9 +73,13 @@ function getDomainDifficulty(domain) {
 
     return 256 - Math.log2(Number(hash))
 }
+function sortDomains() {
+    global.domains = global.domains.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)
+}
 
 global.newDomain = newDomain
 global.sleep = sleep
 global.domainToEndpoint = domainToEndpoint
 global.endpointToDomain = endpointToDomain
 global.getDomainDifficulty = getDomainDifficulty
+global.sortDomains = sortDomains

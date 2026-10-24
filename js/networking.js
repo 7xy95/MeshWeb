@@ -81,10 +81,10 @@ async function checkUrl() {
     }
 }
 
-async function broadcastDomain(domain) {
+async function broadcastDomain(domain, n=15) {
     let randN = [...global.allNodes]
         .sort(() => Math.random() - 0.5)
-        .slice(0, 15)
+        .slice(0, n)
     for (let node of randN) {
         void fetch(node + "domain", {
             method: "POST",
@@ -172,6 +172,13 @@ async function runServer() {
         maxHeaderSize: 2048
     }, async (req, res) => {
         try {
+            if (req.method === "GET" && req.url === "/routes") {
+                sendJSON(res, 200, {
+                    ok: true,
+                    routes: JSON.stringify(["/peers", "/online", "/hash",
+                        "/routes", "/domains", "/domains?chars", "/domains?name", "/domains?key"])
+                })
+            }
             if (req.method === "GET" && req.url === "/peers") {
                 sendJSON(res, 200, {
                     ok: true,
@@ -185,10 +192,70 @@ async function runServer() {
                 })
                 return
             }
+            if (req.method === "GET" && req.url === "/hash") {
+                global.sortDomains()
+                sendJSON(res, 200, {
+                    ok: true,
+                    hash: require("crypto").createHash("sha256").update(JSON.stringify(global.domains)).digest("hex")
+                })
+                return
+            }
             if (req.method === "GET" && req.url === "/domains") {
                 sendJSON(res, 200, {
                     ok: true,
                     domains: global.domains
+                })
+                return
+            }
+            if (req.method === "GET" && req.url.startsWith("/domains?chars")) {
+                let u = new URL(req.url, "http://localhost")
+                let chars = JSON.parse(u.searchParams.get("chars"))
+
+                let matches = []
+                for (let char of chars) {
+                    matches.push(...domains.filter((d) => d[0].startsWith(char)))
+                }
+                if (matches.length > 2048) {
+                    sendJSON(res, 422, {
+                        ok: false,
+                        error: "Too Many Matching Domains",
+                        matches: matches.length,
+                        limit: 2048
+                    })
+                }
+                else {
+                    sendJSON(res, 200, {
+                        ok: true,
+                        domains: matches
+                    })
+                }
+                return
+            }
+            if (req.method === "GET" && req.url.startsWith("/domains?name")) {
+                let u = new URL(req.url, "http://localhost")
+                let name = u.searchParams.get("name")
+                let domain = global.domains.find((d) => d[0] === name)
+                if (!domain) {
+                    sendJSON(res, 404, {
+                        ok: false,
+                        error: "Domain Not Found"
+                    })
+                }
+                else {
+                    sendJSON(res, 200, {
+                        ok: true,
+                        domain: domain
+                    })
+                }
+                return
+            }
+            if (req.method === "GET" && req.url.startsWith("/domains?key")) {
+                let u = new URL(req.url, "http://localhost")
+                let key = u.searchParams.get("key")
+                let domains = global.domains.filter((d) => d[1] === key)
+                sendJSON(res, 200, {
+                    ok: true,
+                    domains: domains
                 })
                 return
             }
@@ -388,5 +455,6 @@ module.exports = {
     get,
     getPort,
     getNodes,
-    tunnelUrl
+    tunnelUrl,
+    broadcastDomain
 }

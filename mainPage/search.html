@@ -43,14 +43,14 @@
             flex-direction: row;
             bottom: 16px;
             left: 24px;
-            font-size: 16px;
+            font-size: 14px;
         }
         .version {
             position: absolute;
             right: 24px;
             bottom: 16px;
             margin: 0;
-            font-size: 16px;
+            font-size: 14px;
         }
         .linkToText {
             color: #dfe6ed;
@@ -91,10 +91,12 @@
         <a class="linkToText" href="howDomainsWork.html" style="margin-left: 32px">How domains work</a>
         <a class="linkToText" onclick="setUrl('docs.mesh')" style="margin-left: 32px">View full documentation</a>
     </div>
-    <p class="version">v1.2.2</p>
 </div>
 </body>
 <script>
+    const VERSION = "v1.2.3"
+    document.getElementById("version").innerText = VERSION
+
     async function setUrl(url) {
         window.mesh.setUrl(url)
     }
@@ -175,5 +177,22 @@
 			console.log(error)
         }
     })
+
+    updateVersion()
+
+    async function updateVersion() {
+		let response = await fetch("https://api.github.com/repos/7xy95/MeshWeb/releases/latest")
+		response = await response.json()
+		let version = response.tag_name
+		if (version.startsWith("v")) {
+			if (version !== VERSION) {
+                let v = document.getElementById("version")
+                v.style.color = "dodgerblue"
+                v.style.textDecoration = "underline"
+                v.style.cursor = "click"
+                v.innerHTML = `<a href="https://github.com/7xy95/MeshWeb/releases">${version} available!</a>`
+			}
+		}
+    }
 </script>
 </html>

@@ -56,7 +56,7 @@ function scheduleWakeReload() {
 }
 
 function createWindow() {
-    win = new BrowserWindow({
+    let win = new BrowserWindow({
         icon: path.join(__dirname, "assets", "icon.png"),
         webPreferences: {
             nodeIntegration: true,
@@ -87,8 +87,13 @@ function createWindow() {
 
     win.webContents.on("did-attach-webview", (event, webContents) => {
         webContents.on("before-input-event", (event, input) => {
-            if ((input.control || input.meta) && ["r", "w", "q"].includes(input.key.toLowerCase())) {
+            if (BrowserWindow.getFocusedWindow() !== win) {return}
+            if ((input.control || input.meta) && ["r", "w", "q", "t"].includes(input.key.toLowerCase())) {
                 event.preventDefault()
+            }
+            if ((input.control || input.meta) && input.key.toLowerCase() === "n") {
+                event.preventDefault()
+                createWindow()
             }
             win.webContents.send("shortcut", input)
         })
@@ -111,7 +116,6 @@ function createWindow() {
         main.attachWindow(win)
     })
 }
-
 app.whenReady().then(async () => {
     let blocked = ["doubleclick.net", "googlesyndication.com", "googleadservices.com"]
     session.defaultSession.webRequest.onBeforeRequest(
@@ -125,6 +129,13 @@ app.whenReady().then(async () => {
             callback({cancel: shouldBlock})
         }
     )
+
+    app.configureHostResolver({
+        secureDnsMode: "secure",
+        secureDnsServers: [
+            "https://cloudflare-dns.com/dns-query"
+        ]
+    })
 
     createWindow()
 })
