@@ -6,6 +6,7 @@ const session = path.join(dataDir, "domains.json")
 const peers = path.join(dataDir, "peers.json")
 const history = path.join(dataDir, "history.json")
 const settings = path.join(dataDir, "settings.json")
+const domainKeys = path.join(dataDir, "domainKeys.json")
 
 function getDomains() {
 	try {
@@ -37,10 +38,39 @@ function savePeers() {
 	fs.writeFileSync(peers, JSON.stringify(global.allNodes))
 }
 
+function getDomainKeys() {
+	try {
+		if (!fs.existsSync(domainKeys)) {
+			fs.writeFileSync(domainKeys, JSON.stringify({}))
+		}
+		return JSON.parse(fs.readFileSync(domainKeys, "utf-8"))
+	}
+	catch {
+		return {}
+	}
+}
+function addDomainKey(domain, key) {
+	let domains = getDomainKeys()
+	domains[domain] = key
+	fs.writeFileSync(domainKeys, JSON.stringify(domains))
+}
+
 function getSettings() {
 	let defaultSettings = {
 		"searchEngine": "https://www.google.com/search?",
-		"saveHistory": true}
+		"saveHistory": true,
+		"encryptDNS": false,
+		"blockAds": true,
+		"blockHTTP": false,
+		"clearHistoryOnExit": false,
+		"clearDataOnExit": false,
+		"restoreTabsAfterRestart": true,
+		"allowCamera": false,
+		"allowMicrophone": false,
+		"allowLocation": false,
+		"allowNotification": false,
+		"domainOwnerChangedWarning": true//todo
+	}
 	try {
 		if (!fs.existsSync(settings)) {
 			fs.writeFileSync(settings, JSON.stringify(defaultSettings))
@@ -102,6 +132,8 @@ module.exports = {
 	getPeers,
 	savePeers,
 	getHistory,
+	getDomainKeys,
+	addDomainKey,
 	saveHistory,
 	getSettings,
 	saveSettings,

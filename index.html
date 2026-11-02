@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.2.3</title>
+    <title>Mesh Web v1.3.1</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -86,6 +86,12 @@
             width: 16px;
             height: 16px;
             margin-right: 6px;
+        }
+        .tabIcon.loading {
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin {
+            to {transform: rotate(360deg)}
         }
 
         #connection {
@@ -206,12 +212,13 @@
 	let page = null
     let draggedTab = null
 
-    async function newTab(url = "mesh://search") {
+    async function newTab(url = "mesh://search", useTor = false) {
 		let webview = document.createElement("webview")
         webview.className = "page"
         webview.setAttribute("preload", "./webview.js")
 		webview.setAttribute("allowpopups", "")
         webview.setAttribute("webpreferences", "disableDialogs=no")
+        if (useTor) {webview.setAttribute("partition", "tor")}
         document.getElementById("pages").appendChild(webview)
 
         let icon = document.createElement("img")
@@ -231,8 +238,7 @@
 
 		document.getElementById("tabIcons").insertBefore(tabIcon, document.getElementById("newTabBtn"))
 
-        let tab = {webview, tabIcon, title, "mesh": false, "url": url}
-
+        let tab = {webview, tabIcon, title, "mesh": false, "url": url, useTor}
 
 		tabIcon.addEventListener("click", () => {
 			selectTab(tab)
@@ -266,9 +272,25 @@
 			event.stopPropagation()
 			deleteTab(tab)
 		})
-        webview.addEventListener("page-favicon-updated", event => {
-			if (event.favicons.length > 0) {
-				icon.src = event.favicons[0]
+        webview.addEventListener("page-favicon-updated", async event => {
+			if (!event.favicons.length ) {return}
+			let faviconUrl = event.favicons[0]
+            if (tab.useTor) {
+				icon.src = await webview.executeJavaScript(`
+                (async () => {
+                    const response = await fetch(${JSON.stringify(faviconUrl)})
+                    const blob = await response.blob()
+
+                    return await new Promise((resolve, reject) => {
+                        const reader = new FileReader()
+                        reader.onload = () => resolve(reader.result)
+                        reader.onerror = reject
+                        reader.readAsDataURL(blob)
+                    })
+                })()`)
+            }
+			else {
+				icon.src = faviconUrl
             }
         })
 		webview.addEventListener("page-title-updated", event => {
@@ -298,12 +320,27 @@
 			if (isMeshUrl(event.url)) {
 				event.preventDefault()
                 parseUrlInput(event.url)
+                return
+            }
+			const currentHost = new URL(webview.getURL()).hostname
+			const nextHost = new URL(event.url).hostname
+			if (currentHost !== nextHost) {
+				tab.mesh = false
+                tab.meshDomain = null
+                tab.url = event.url
             }
         })
         webview.addEventListener("did-fail-load", (event) => {
 			if (!event.isMainFrame || event.errorCode === -3) {return}
+			if (tab !== activeTab) {return}
 			setMainPageUrl(`error?name=${encodeURIComponent(event.validatedURL)}&reason=${encodeURIComponent(event.errorDescription)}`)
         })
+		webview.addEventListener("did-start-loading", () => {
+			icon.classList.add("loading")
+		})
+		webview.addEventListener("did-stop-loading", () => {
+			icon.classList.remove("loading")
+		})
 
         tabs.push(tab)
         selectTab(tab)
@@ -392,7 +429,7 @@
     }
 
 	async function start() {
-		if (await isOnlyWindow()) {
+		if (await isOnlyWindow() && (await getSettings()).restoreTabsAfterRestart) {
 			void loadTabs()
 		}
 		else {
@@ -433,7 +470,14 @@
         }
 		if (activeTab.mesh) {
 			if (activeTab.meshDomain) {
-				urlInput.value = activeTab.meshDomain
+				let meshUrl = new URL(activeTab.meshDomain)
+                let endpointUrl = new URL(u)
+
+				meshUrl.pathname = endpointUrl.pathname
+				meshUrl.search = endpointUrl.search
+				meshUrl.hash = endpointUrl.hash
+
+				urlInput.value = meshUrl.href
             }
 			else {
 				urlInput.value = await get(`global.endpointToDomain(${JSON.stringify(u)})`)
@@ -467,6 +511,30 @@
     })
 
     async function parseUrlInput(url) {
+		async function setSrc(domain) {
+			let targetUrl = new URL(domain)
+            let isOnion = targetUrl.hostname.endsWith(".onion")
+            if (isOnion && !activeTab.useTor) {
+				let exists = await ipcRenderer.invoke("tor:setup")
+                if (!exists) {
+					setMainPageUrl("usesTor")
+                    return
+                }
+				let oldTab = activeTab
+				await newTab(domain, true)
+				activeTab.mesh = oldTab.mesh
+				activeTab.meshDomain = oldTab.meshDomain
+				activeTab.url = oldTab.url
+				await deleteTab(oldTab)
+				await updateUrl(activeTab.webview.getURL())
+				return
+            }
+			if ((await getSettings()).blockHTTP && domain.startsWith("http://") && !isOnion) {
+				setMainPageUrl("endpointBlocked")
+                return
+            }
+			page.src = domain
+        }
 		activeTab.mesh = isMeshUrl(url)
         activeTab.url = url
 
@@ -480,7 +548,12 @@
         }
 
         if (isMeshUrl(url)) {
-            let domain = await get(`global.domainToEndpoint(${JSON.stringify(url)})`)
+			activeTab.meshDomain = url
+            let [domain, warning, key] = await get(`global.domainToEndpoint(${JSON.stringify(url)}, true)`)
+            if (warning) {
+				setMainPageUrl(`domainChanged?name=${encodeURIComponent(domain)}&url=${encodeURIComponent(url)}&key=${encodeURIComponent(key)}`)
+                return
+            }
 			if (domain.endsWith("/")) {domain = domain.slice(0, domain.length-1)}
             if (domain === url) {
 				setMainPageUrl(`notFound?name=${domain}`)
@@ -489,18 +562,17 @@
 				setMainPageUrl(domain.slice(7))
             }
 			else {
-				page.src = domain
+				await setSrc(domain)
             }
-			activeTab.meshDomain = url
         }
         else if (url.includes(".") && !url.includes(" ")) {
-            page.src = url
+			await setSrc(url)
         }
         else if (url === "https://") {
             setMainPageUrl("search")
         }
         else {
-            page.src = `${(await getSettings()).searchEngine}q=${encodeURIComponent(url.slice(8))}`
+			await parseUrlInput(`${(await getSettings()).searchEngine}q=${encodeURIComponent(url.slice(8))}`)
         }
     }
 

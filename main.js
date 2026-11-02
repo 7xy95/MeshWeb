@@ -5,8 +5,6 @@ const fs = require("fs")
 const http = require("node:http")
 const { spawn } = require("node:child_process")
 
-nativeTheme.themeSource = "dark"
-
 app.commandLine.appendSwitch("password-store", "basic")
 app.commandLine.appendSwitch("use-mock-keychain")
 app.commandLine.appendSwitch("disable-renderer-backgrounding")
@@ -24,9 +22,11 @@ const sync = require("./js/sync.js")
 const storage = require("./js/storage.js")
 const network = require("./js/networking.js")
 
+global.settings = storage.getSettings()
+nativeTheme.themeSource = "dark"
+
 let win = null
 let reloading = false
-let wakeReloadTimer = null
 
 function reloadWindow() {
     if (reloading) return
@@ -42,17 +42,6 @@ function reloadWindow() {
     setTimeout(() => {
         reloading = false
     }, 3000)
-}
-
-function scheduleWakeReload() {
-    if (wakeReloadTimer) {
-        clearTimeout(wakeReloadTimer)
-    }
-
-    wakeReloadTimer = setTimeout(() => {
-        wakeReloadTimer = null
-        reloadWindow()
-    }, 10000)
 }
 
 function createWindow() {
@@ -121,6 +110,10 @@ app.whenReady().then(async () => {
     session.defaultSession.webRequest.onBeforeRequest(
         { urls: ["*://*/*"] },
         (details, callback) => {
+            if (!global.settings.blockAds) {
+                callback({cancel: false})
+                return
+            }
             let host = null
             try {host = new URL(details.url).hostname}
             catch {callback({}); return}
@@ -129,12 +122,30 @@ app.whenReady().then(async () => {
             callback({cancel: shouldBlock})
         }
     )
+    session.defaultSession.setPermissionCheckHandler((webContents, permission, callback, details) => {
+        let allowed = false
+        if (permission === "media") {
+            let types = details.mediaTypes || []
+            allowed = types.length > 0 && types.every(type => {
+                if (type === "audio") {return global.settings.allowMicrophone}
+                if (type === "video") {return global.settings.allowCamera}
+                return false
+            })
+
+        }
+        else if (permission === "geolocation") {
+            allowed = global.settings.allowLocation
+        }
+        else if (permission === "notifications") {
+            allowed = global.settings.allowNotifications
+        }
+
+        return allowed
+    })
 
     app.configureHostResolver({
-        secureDnsMode: "secure",
-        secureDnsServers: [
-            "https://cloudflare-dns.com/dns-query"
-        ]
+        secureDnsMode: global.settings.encryptDNS ? "secure" : "automatic",
+        secureDnsServers: global.settings.encryptDNS ? ["https://cloudflare-dns.com/dns-query"] : []
     })
 
     createWindow()
@@ -151,9 +162,16 @@ app.on("window-all-closed", (event) => {
 app.on("will-quit", () => {
     globalShortcut.unregisterAll()
 })
-app.on("before-quit", () => {
+app.on("before-quit", async () => {
     if (global.domains.length !== 0) {
         storage.saveDomains()
+        if (global.settings.clearHistoryOnExit) {
+            storage.clearHistory()
+            storage.saveHistory()
+        }
+        if (global.settings.clearDataOnExit) {
+            await session.defaultSession.clearData()
+        }
     }
 })
 

@@ -20,7 +20,6 @@
     let reason = params.get("reason")
 
     if (name.startsWith("https://")) {name = name.replace("https://", "")}
-    name = name.slice(0, name.length-1)
 
     document.getElementById("info").innerHTML = `
         <div style="font-size: 32px">This site can't be reached</div><br><br>

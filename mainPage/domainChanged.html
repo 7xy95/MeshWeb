@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Domain changed warning</title>
+    <link rel="icon" href="../assets/icon.png">
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        a {
+            color: dodgerblue;
+            text-decoration: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <p id="info" style="margin: 128px; font-size: 20px"></p>
+</body>
+<script>
+	async function setUrl(url) {
+		window.mesh.setUrl(url)
+	}
+	async function run(code) {
+		window.mesh.run(code)
+	}
+
+	let params = new URLSearchParams(location.search)
+    let endpoint = params.get("name")
+    let domain = params.get("url")
+    let key = params.get("key")
+
+    function normalise(url) {
+		if (url.startsWith("https://")) {url = url.replace("https://", "")}
+		return url
+    }
+    domain = normalise(domain)
+    endpoint = normalise(endpoint)
+
+    document.getElementById("info").innerHTML = `
+        <div style="font-size: 32px">Warning!</div><br><br>
+        The owner of the domain '${domain}' has changed!<br>
+        Your settings have blocked the domain due to the change.<br>
+        New endpoint: '${endpoint}'<br>
+        If you trust the endpoint and understand the risks <a onclick="proceed()">Click here to proceed</a>
+    `
+    async function proceed() {
+		let hostname = new URL("https://" + domain).hostname
+		await run(`require("./js/storage.js").addDomainKey(${JSON.stringify(hostname)}, ${JSON.stringify(key)})`)
+        setUrl("https://" + domain)
+    }
+</script>
+</html>

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The site uses Tor</title>
+    <link rel="icon" href="../assets/icon.png">
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        a {
+            color: dodgerblue;
+        }
+    </style>
+</head>
+<body>
+    <p id="info" style="margin: 128px; font-size: 20px"></p>
+</body>
+<script>
+    document.getElementById("info").innerHTML = `
+        <div style="font-size: 32px">Tor required</div><br><br>
+        The site you tried to open ends with .onion<br>
+        To open the site, you need a Tor process running.
+        You can download Tor <a href="https://download.torproject.org/tor-browser-for-desktop/">Here</a>
+    `
+</script>
+</html>

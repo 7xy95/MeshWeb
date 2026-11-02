@@ -1,5 +1,6 @@
-const { ipcMain } = require("electron")
+const { ipcMain, session } = require("electron")
 const { globalShortcut } = require("electron")
+const net = require("node:net")
 const fs = require("fs")
 const vm = require("vm")
 const path = require("path")
@@ -11,7 +12,6 @@ require("./js/new.js")
 require("./js/mining.js")
 
 global.domains = []
-global.settings = storage.getSettings()
 global.searchHistory = storage.getHistory()
 global.allNodes = storage.getPeers()
 global.privateKey = null
@@ -26,7 +26,6 @@ global.__dirname = __dirname
 async function attachWindow(window) {
     win = window
 }
-
 
 let ss = null
 async function startApp(window) {
@@ -55,6 +54,36 @@ async function startApp(window) {
     }
 }
 
+function checkPort(port) {
+    return new Promise(resolve => {
+        let socket = net.connect(port, "127.0.0.1")
+        socket.setTimeout(1000)
+        socket.once("connect", () => {
+            socket.destroy()
+            resolve(true)
+        })
+        socket.once("error", () => resolve(false))
+
+        socket.once("timeout", () => {
+            socket.destroy()
+            resolve(false)
+        })
+    })
+}
+
+ipcMain.handle("tor:setup", async () => {
+    for (let port of [9150, 9050]) {
+        if (!(await checkPort(port))) {continue}
+        let torSession = session.fromPartition("tor")
+        await torSession.setProxy({
+            mode: "fixed_servers",
+            proxyRules: `socks5://127.0.0.1:${port}`,
+            proxyBypassRules: "<-loopback>"
+        })
+        return true
+    }
+    return false
+})
 ipcMain.on("main:run", (event, code) => {
     try {
         vm.runInThisContext(code)

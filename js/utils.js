@@ -1,4 +1,5 @@
 const verify = require("./verify.js")
+const storage = require("./storage.js")
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms))
@@ -34,20 +35,37 @@ function newDomain(domain, maxSequenceGap=65536n) {
     }
     return false
 }
-function domainToEndpoint(domain) {
+function domainToEndpoint(domain, getWarning=false) {
     try {
+        let w = false
         let url = new URL(domain)
 
         let d = global.domains.find(item => item[0] === url.hostname)
 
-        if (!domain) {return domain}
+        if (!d) {return domain}
+
+        if (!storage.getDomainKeys()[d[0]]) {
+            storage.addDomainKey(d[0], d[1])
+        }
+        else if (!global.settings.domainOwnerChangedWarning ||
+            (global.settings.domainOwnerChangedWarning && storage.getDomainKeys()[d[0]] === d[1])) {
+            storage.addDomainKey(d[0], d[1])
+        }
+        else {
+            w = true
+        }
+
         let endpoint = new URL(d[3])
 
         endpoint.pathname = endpoint.pathname.replace(/\/$/, "") + url.pathname
 
-        endpoint.search = url.search
-        endpoint.hash = url.hash
-
+        for (let [key, value] of url.searchParams) {
+            endpoint.searchParams.set(key, value)
+        }
+        if (url.hash) {
+            endpoint.hash = url.hash
+        }
+        if (getWarning) {return [endpoint.href.replace("/?", "?"), w, d[1]]}
         return endpoint.href.replace("/?", "?")
     }
     catch {

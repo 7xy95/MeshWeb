@@ -9,36 +9,117 @@
         .title {
             font-size: 28px;
         }
+        .subtitle {
+            font-size: 20px;
+            margin-bottom: 0;
+            margin-top: 48px;
+        }
         .param {
             font-size: 16px;
             display: flex;
             flex-direction: row;
             align-items: center;
         }
+        .param input {
+            position: absolute;
+            left: 350px;
+        }
         body {
             font-family: system-ui;
             padding: 86px;
+            background-color: #1c1c1c;
+            min-height: 100vh;
+            height: auto;
         }
         input {
             width: 300px;
             margin-left: 16px;
         }
         .checkbox {
-            width: 10px;
-            height: 10px;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: none;
+            outline: none;
+            box-shadow: none;
             background-color: #dfe6ed;
+        }
+        .checkbox:checked {
+            appearance: auto;
+        }
+        .checkbox:not(:checked) {
+            background-color: #dfe6ed;
+        }
+        .btn {
+            margin-top: 0;
         }
     </style>
 </head>
 <body>
     <p class="title">Settings</p>
+    <p class="subtitle">Browsing</p>
     <div class="param">
         <p>Search engine:</p>
         <input id="searchEngine" oninput="onInputChange('searchEngine')">
     </div>
     <div class="param">
+        <p>Restore tabs after restart:</p>
+        <input type="checkbox" class="checkbox" id="restoreTabsAfterRestart" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
         <p>Save history:</p>
-        <input type="checkbox" class="checkbox" id="saveHistory" oninput="onTick('saveHistory')">
+        <input type="checkbox" class="checkbox" id="saveHistory" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <button class="btn" onclick="run('require(`./js/storage.js`).clearHistory()')">Clear History</button>
+    </div>
+
+    <p class="subtitle">Privacy & Security</p>
+    <div class="param">
+        <p>Block ads:</p>
+        <input type="checkbox" class="checkbox" id="blockAds" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Encrypt DNS:</p>
+        <input type="checkbox" class="checkbox" id="encryptDNS" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Block HTTP:</p>
+        <input type="checkbox" class="checkbox" id="blockHTTP" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Domain owner changed warning:</p>
+        <input type="checkbox" class="checkbox" id="domainOwnerChangedWarning" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Clear history on exit:</p>
+        <input type="checkbox" class="checkbox" id="clearHistoryOnExit" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Clear data on exit:</p>
+        <input type="checkbox" class="checkbox" id="clearDataOnExit" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <button class="btn" onclick="run(`require('electron').session.defaultSession.clearData();
+        require('electron').session.fromPartition('tor').clearCache()`)">Clear Data</button>
+    </div>
+
+    <p class="subtitle">Website Permissions</p>
+    <div class="param">
+        <p>Allow microphone:</p>
+        <input type="checkbox" class="checkbox" id="allowMicrophone" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Allow camera:</p>
+        <input type="checkbox" class="checkbox" id="allowCamera" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Allow location:</p>
+        <input type="checkbox" class="checkbox" id="allowLocation" oninput="onTick(this.id)">
+    </div>
+    <div class="param">
+        <p>Allow notifications:</p>
+        <input type="checkbox" class="checkbox" id="allowNotifications" oninput="onTick(this.id)">
     </div>
 </body>
 <script>
@@ -49,6 +130,9 @@
 	}
 	async function saveNewSettings() {
 		window.mesh.run(`global.settings = ${JSON.stringify(settings)}`)
+    }
+	async function run(code) {
+		window.mesh.run(code)
     }
 
     function onInputChange(name) {
@@ -63,6 +147,17 @@
 		await getSettings()
 		document.getElementById("searchEngine").value = settings.searchEngine
 		document.getElementById("saveHistory").checked = settings.saveHistory
+		document.getElementById("encryptDNS").checked = settings.encryptDNS
+		document.getElementById("blockAds").checked = settings.blockAds
+		document.getElementById("blockHTTP").checked = settings.blockHTTP
+		document.getElementById("clearHistoryOnExit").checked = settings.clearHistoryOnExit
+		document.getElementById("clearDataOnExit").checked = settings.clearDataOnExit
+		document.getElementById("restoreTabsAfterRestart").checked = settings.restoreTabsAfterRestart
+		document.getElementById("allowMicrophone").checked = settings.allowMicrophone
+		document.getElementById("allowCamera").checked = settings.allowCamera
+		document.getElementById("allowLocation").checked = settings.allowLocation
+		document.getElementById("allowNotifications").checked = settings.allowNotification
+		document.getElementById("domainOwnerChangedWarning").checked = settings.domainOwnerChangedWarning
     }
 	init()
 </script>
