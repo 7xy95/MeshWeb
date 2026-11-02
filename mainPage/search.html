@@ -43,14 +43,22 @@
             flex-direction: row;
             bottom: 16px;
             left: 24px;
-            font-size: 14px;
+            font-size: 15px;
+            height: 20px;
         }
         .version {
             position: absolute;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 16px;
             right: 24px;
             bottom: 16px;
+            font-size: 15px;
+            height: 20px;
+        }
+        .version p {
             margin: 0;
-            font-size: 14px;
         }
         .linkToText {
             color: #dfe6ed;
@@ -89,12 +97,16 @@
         <a class="linkToText" href="domain.html">Register domain</a>
         <a class="linkToText" href="mining.html" style="margin-left: 32px">Manage mining</a>
         <a class="linkToText" href="howDomainsWork.html" style="margin-left: 32px">How domains work</a>
-        <a class="linkToText" onclick="setUrl('docs.mesh')" style="margin-left: 32px">View full documentation</a>
+        <a class="linkToText" onclick="setUrl('docs.mesh')" style="margin-left: 32px">Full documentation</a>
+    </div>
+    <div class="version">
+        <a class="linkToText" href="settings.html">Settings</a>
+        <p id="version"></p>
     </div>
 </div>
 </body>
 <script>
-    const VERSION = "v1.2.3"
+    const VERSION = "v1.3.1"
     document.getElementById("version").innerText = VERSION
 
     async function setUrl(url) {
@@ -102,6 +114,9 @@
     }
 	async function get(code) {
 		return await window.mesh.get(code)
+	}
+	async function getSettings() {
+		return await get('global.settings')
 	}
 
 	function simplifyUrl(url) {
@@ -147,6 +162,21 @@
         }
         return suggestions
     }
+	async function getSearchEngine() {
+		let searchEngine = (await getSettings()).searchEngine
+        searchEngine = searchEngine.replace("https://", "")
+		searchEngine = searchEngine.replace("www.", "")
+		searchEngine = searchEngine.replace(".com", "")
+        let i = searchEngine.indexOf("/")
+        searchEngine = searchEngine.slice(0, i)
+        if (searchEngine === "google") {return "https://suggestqueries.google.com/complete/search?client=chrome&q="}
+		if (searchEngine === "bing") {return "https://api.bing.com/osjson.aspx?query="}
+		if (searchEngine === "duckduckgo") {return "https://duckduckgo.com/ac/?q="}
+		if (searchEngine === "brave") {return "https://search.brave.com/api/suggest?q="}
+		if (searchEngine === "ecosia") {return "https://ac.ecosia.org/autocomplete?q="}
+		if (searchEngine === "qwant") {return "https://api.qwant.com/api/suggest/?q="}
+		return "https://suggestqueries.google.com/complete/search?client=chrome&q="
+    }
 
     let urlInput = document.getElementById("urlInput")
 
@@ -163,9 +193,10 @@
 				displaySuggestions([])
 				return
 			}
-			let data = await fetch(`https://suggestqueries.google.com/complete/search?client=chrome&q=${encodeURIComponent(input)}`)
+			let searchEngine = await getSearchEngine()
+			let data = await fetch(`${searchEngine}${encodeURIComponent(input)}`)
 			data = await data.json()
-			if (urlInput.value.trim() !== input) {return}
+			if (urlInput.value !== input) {return}
 			let suggestions = data[1]
 			suggestions = await addSuggestion(suggestions, input)
 			displaySuggestions(suggestions)
