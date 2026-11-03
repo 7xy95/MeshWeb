@@ -1,5 +1,5 @@
 const { app, BrowserWindow, powerMonitor, globalShortcut,
-    nativeTheme,session } = require("electron")
+    nativeTheme, session, Menu} = require("electron")
 const path = require("path")
 const fs = require("fs")
 const http = require("node:http")
@@ -173,6 +173,20 @@ app.on("before-quit", async () => {
             await session.defaultSession.clearData()
         }
     }
+})
+app.on("web-contents-created", (event, contents) => {
+    contents.on("context-menu", (event, params) => {
+        if (!params.isEditable && !params.selectionText) {
+            let menu = Menu.buildFromTemplate([
+                {role: "cut", enabled: params.editFlags.canCut},
+                {role: "copy", enabled: params.editFlags.canCopy},
+                {role: "paste", enabled: params.editFlags.canPaste},
+                {type: "separator"},
+                {role: "selectAll", enabled: params.editFlags.canSelectAll},
+            ])
+            menu.popup()
+        }
+    })
 })
 
 powerMonitor.on("resume", async () => {

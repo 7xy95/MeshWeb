@@ -73,7 +73,9 @@
 </body>
 <script>
 	let params = new URLSearchParams(location.search)
-	let name = params.get("name")
+	let name = params.get("name") || ""
+    if (name.includes("://")) {name = name.split("://")[1]}
+    if (name.includes("/")) {name = name.split("/")[0]}
     if (!name) {
 		document.getElementById("domainSearch").style.display = "none"
     }

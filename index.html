@@ -2,11 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.3.1</title>
+    <title>Mesh Web v1.3.2</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
             background-color: #1c1c1c;
+        }
+        .link {
+            cursor: pointer;
+            color: dodgerblue;
         }
         .topArrow {
             background-color: #2c2c2c;
@@ -104,15 +108,27 @@
             line-height: 24px;
         }
         #domainInfo {
-            position: absolute;
-            left: 16px;
-            bottom: 10px;
+            position: relative;
+            left: 4px;
+            bottom: 8px;
 
             color: #dfe6ed;
             font-size: 16px;
+            display: flex;
             text-decoration: none;
             white-space: nowrap;
             cursor: pointer;
+        }
+        #infoPopup {
+            position: fixed;
+            margin: 0;
+            background: #3b3b3b;
+            border: 1px solid #444;
+            border-radius: 10px;
+            color: white;
+        }
+        #popupInfoText {
+            margin: 8px;
         }
     </style>
 </head>
@@ -121,10 +137,13 @@
     <div class="tabIcons" id="tabIcons">
         <button class="tabBtn" id="newTabBtn" style="margin-right: 28px;">+</button>
     </div>
-    <a id="domainInfo">Domain Info</a>
     <button id="back" class="topArrow">←</button>
     <button id="forward" class="topArrow">→</button>
     <input style="width: 50vw; margin: 5px" id="urlInput">
+    <a id="domainInfo" onclick="updateInfo()">ⓘ</a>
+    <div id="infoPopup" popover>
+        <p id="popupInfoText"></p>
+    </div>
     <p id="connection"></p>
 </div>
 <div id="pages"></div>
@@ -205,6 +224,33 @@
         console.log(error)
     })
 
+    let infoButton = document.getElementById("domainInfo")
+    let infoPopup = document.getElementById("infoPopup")
+	infoButton.addEventListener("click", () => {
+		infoPopup.togglePopover()
+	})
+	infoPopup.addEventListener("toggle", event => {
+		if (event.newState !== "open") {return}
+		infoPopup.style.left = `${Math.max(8, Math.min(
+			infoButton.getBoundingClientRect().left,
+			window.innerWidth - infoPopup.offsetWidth - 8
+		))}px`
+		infoPopup.style.top = `${infoButton.getBoundingClientRect().bottom+8}px`
+	})
+    function updateInfo() {
+		if (activeTab.webview.src.startsWith("file://")) {
+			document.getElementById("popupInfoText").innerHTML = `Internal page`
+            return
+        }
+		document.getElementById("popupInfoText").innerHTML = `
+            ${activeTab.useTor ? "Connected using Tor": "Normal connection"}<br>
+            ${activeTab.mesh ? `
+            <a class="link" onclick="parseUrlInput('mesh://domain?name=${encodeURIComponent(activeTab.meshDomain.split('://')[1])}')">View Registration</a><br>
+            ${activeTab.meshDomain}<br>
+            →${activeTab.webview.src}
+            `:""}
+        `
+    }
 
     let tabs = []
     let activeTab = null
@@ -341,6 +387,9 @@
 		webview.addEventListener("did-stop-loading", () => {
 			icon.classList.remove("loading")
 		})
+		webview.addEventListener("focus", () => {
+			infoPopup.hidePopover()
+		})
 
         tabs.push(tab)
         selectTab(tab)
@@ -452,8 +501,6 @@
 	})
 
     async function updateUrl(u) {
-		let domainLink = document.getElementById("domainInfo")
-		domainLink.style.display = "none"
 		if (!u) {return}
         let url = new URL(u)
         if (url.protocol === "file:" && url.pathname.endsWith(".html") && url.pathname.includes("mainPage/")) {
@@ -494,14 +541,9 @@
         }
 
 		if (isMeshUrl(urlInput.value)) {
-			domainLink.style.display = "flex"
             let d = urlInput.value
             d = d.replaceAll("https://", "").replaceAll("http://", "")
             d = d.split("/")[0]
-            domainLink.onclick = () => setMainPageUrl(`domain?name=${d}`)
-        }
-		else {
-			domainLink.style.display = "none"
         }
     }
     urlInput.addEventListener("keydown", async (event) => {
@@ -527,6 +569,7 @@
 				activeTab.url = oldTab.url
 				await deleteTab(oldTab)
 				await updateUrl(activeTab.webview.getURL())
+                selectTab(activeTab)
 				return
             }
 			if ((await getSettings()).blockHTTP && domain.startsWith("http://") && !isOnion) {
