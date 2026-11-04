@@ -42,7 +42,7 @@ function domainToEndpoint(domain, getWarning=false) {
 
         let d = global.domains.find(item => item[0] === url.hostname)
 
-        if (!d) {return domain}
+        if (!d) {return getWarning ? [domain, false, null] : domain}
 
         if (!storage.getDomainKeys()[d[0]]) {
             storage.addDomainKey(d[0], d[1])
@@ -69,7 +69,7 @@ function domainToEndpoint(domain, getWarning=false) {
         return endpoint.href.replace("/?", "?")
     }
     catch {
-        return domain
+        return getWarning ? [domain, false, null] : domain
     }
 }
 function endpointToDomain(endpoint) {

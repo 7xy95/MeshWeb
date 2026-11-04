@@ -1,6 +1,6 @@
 const http = require("node:http")
-const { spawn} = require("node:child_process")
-const { app } = require("electron")
+const { spawn } = require("node:child_process")
+const { app, net } = require("electron")
 const path = require("path")
 const {sync} = require("./sync");
 
@@ -32,11 +32,18 @@ async function get(nodeUrl, request, timeout=3) {
             headers: {"Content-Type": "application/json"},
             signal: controller.signal
         })
-        if (!response.ok) {return null}
+        if (!response.ok) {
+            console.log("GET error:", response.status, nodeUrl + request)
+            console.log("Response:", (await response.text()).slice(0, 500))
+            return null
+        }
 
         return await response.json()
     }
-    catch (error) {return null}
+    catch (error) {
+        console.log("GET error:", nodeUrl + request, error)
+        return null
+    }
     finally {
         clearTimeout(timer)
     }
@@ -167,7 +174,6 @@ async function runServer() {
     }
     if (server) {return}
 
-    let fork = false
     server = http.createServer({
         maxHeaderSize: 2048
     }, async (req, res) => {
@@ -329,6 +335,10 @@ async function runServer() {
     })
 
     let isSpecial = false
+
+    server.on("listening", () => {
+        console.log("LISTENING:", server.address())
+    })
     server.listen(isSpecial ? 8787 : 0, isSpecial ? "127.0.0.1" : "0.0.0.0", async () => {
         port = server.address().port
         if (isSpecial) {
@@ -344,12 +354,21 @@ async function runServer() {
             startTunnel()
         }
     })
-    function startTunnel() {
+    function startTunnel(provider = "cloudflared") {
         let gotUrl = false
+        let isChecking = false
+
+        if (tunnelProcess) {return}
+        if (!port) {return}
+        let tunnelTimeout = setTimeout(() => {
+            if (!gotUrl && tunnelProcess) {
+                tunnelProcess.kill()
+            }
+        }, 60000)
         async function tunnelOutput(text) {
             console.log(text)
             if (!gotUrl) {
-                let match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trybore\.com/)
+                let match = text.match(provider === "bore" ? /https:\/\/[a-zA-Z0-9-]+\.trybore\.com/ : /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/)
                 if (!match) {
                     return
                 }
@@ -357,58 +376,115 @@ async function runServer() {
                 global.tunnelUrl = tunnelUrl
                 console.log(`tunnel url: ${tunnelUrl}`)
                 gotUrl = true
+                clearTimeout(tunnelTimeout)
                 await updateURL()
                 await getNodes()
                 await checkAllNodes(true)
-                await shareUrl()
                 void require("./sync.js").sync()
+                if (provider === "bore") {
+                    void checkTunnel()
+                    await shareUrl()
+                }
+            }
+            if (provider === "cloudflared" && text.includes("precheck complete hard_fail=false") && !isChecking) {
+                isChecking = true
+                await sleep(20_000)
                 void checkTunnel()
+                void shareUrl()
             }
         }
-        if (tunnelProcess) {return}
-        if (!port) {return}
 
         const pty = require("node-pty")
+        function onTunnelExit(code) {
+            console.log(`${provider} tunnel closed: ${code}`)
 
-        tunnelProcess = pty.spawn(
-            getTunnelPath(),
-            [`-u=http://127.0.0.1:${port}`],
-            {
-                name: "xterm-256color",
-                cols: 80,
-                rows: 24
-            }
-        )
-
-        tunnelProcess.onData(data => {
-            void tunnelOutput(data)
-        })
-
-        tunnelProcess.onExit(({exitCode, signal}) => {
-            console.log(`tunnel closed: ${exitCode}, signal: ${signal}`)
+            clearTimeout(tunnelTimeout)
             tunnelProcess = null
             tunnelUrl = null
+            global.tunnelUrl = null
 
-            setTimeout(startTunnel, 5000)
-        })
+            setTimeout(() => {
+                startTunnel(provider === "cloudflared" ? "bore" : "cloudflared")
+            }, 5000)
+        }
+        if (provider === "cloudflared") {
+            tunnelProcess = spawn(
+                getTunnelPath("cloudflared"),
+                [
+                    "tunnel",
+                    "--url",
+                    `http://127.0.0.1:${port}`
+                ],
+                {windowsHide: true}
+            )
+            tunnelProcess.stdout.on("data", data => {
+                void tunnelOutput(data.toString())
+            })
+
+            tunnelProcess.stderr.on("data", data => {
+                void tunnelOutput(data.toString())
+            })
+
+            tunnelProcess.on("error", error => {
+                console.error("Cloudflared error:", error)
+            })
+
+            tunnelProcess.on("close", code => {
+                onTunnelExit(code)
+            })
+        }
+        else if (provider === "bore") {
+            tunnelProcess = pty.spawn(
+                getTunnelPath("tunnel"),
+                [`-u=http://127.0.0.1:${port}`],
+                {
+                    name: "xterm-256color",
+                    cols: 160,
+                    rows: 24
+                }
+            )
+
+            tunnelProcess.onData(data => {
+                void tunnelOutput(data)
+            })
+            tunnelProcess.onExit(({exitCode}) => {
+                onTunnelExit(exitCode)
+            })
+        }
     }
 }
 
 let stopChecking = false
 async function checkTunnel() {
-    while (true) {
+    let currentProcess = tunnelProcess
+    let fails = 0
+    while (currentProcess === tunnelProcess) {
         try {
-            if (stopChecking) {stopChecking = false; return}
-            if (tunnelProcess === null || await get(tunnelUrl, "online", 10) === null) {
-                tunnelProcess.kill()
-                stopChecking = true
+            let response = await net.fetch(tunnelUrl + "online", {
+                signal: AbortSignal.timeout(5000)
+            })
+            if (!response.ok) {
+                fails++
+                if (fails >= 3) {
+                    console.log(`Tunnel restarted, ${tunnelUrl}`)
+                    currentProcess.kill()
+                    return
+                }
             }
-
-            await global.sleep(2500)
+            else {
+                fails = 0
+            }
         }
-        catch {
-            await global.sleep(2500)
+        catch (error) {
+            console.log(error)
+            fails++
+            if (fails >= 3) {
+                console.log(`Tunnel restarted, ${tunnelUrl}`)
+                currentProcess.kill()
+                return
+            }
         }
+        await global.sleep(2500)
     }
 }
 
@@ -433,7 +509,7 @@ async function checkAllNodes(once=false) {
                     }
                 }
             }
-            if (once) {return}
+            if (once) {checking = false; return}
             if (Math.random() < 0.5) {
                 void shareUrl()
                 void getNodes()

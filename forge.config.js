@@ -59,15 +59,15 @@ module.exports = {
 
         let appPath = path.join(outputPath, "Mesh Web.app")
 
-        execFileSync("codesign", [
-          "--force",
-          "--deep",
-          "--sign",
-          "-",
-          appPath
-        ], {
-          stdio: "inherit"
-        })
+        // execFileSync("codesign", [
+        //   "--force",
+        //   "--deep",
+        //   "--sign",
+        //   "-",
+        //   appPath
+        // ], {
+        //   stdio: "inherit"
+        // })
       }
     }
   }

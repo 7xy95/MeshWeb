@@ -9,7 +9,7 @@ async function mine(domain, endpoint) {
     domainTo = domain
     endpointTo = endpoint
     let i = require("crypto").randomBytes(8).readBigUInt64BE() % (18n * 10n**18n)
-    best = global.getDomainDifficulty(domain)
+    // best = global.getDomainDifficulty(domain)
     while (true) {
         if (stop) {stop = false; break}
 

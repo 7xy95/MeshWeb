@@ -35,6 +35,13 @@
     }
     domain = normalise(domain)
     endpoint = normalise(endpoint)
+    if (endpoint === "h") {
+		openDomain()
+    }
+	async function openDomain() {
+		await new Promise(resolve => setTimeout(resolve, 1000))
+		setUrl(domain)
+    }
 
     document.getElementById("info").innerHTML = `
         <div style="font-size: 32px">Warning!</div><br><br>

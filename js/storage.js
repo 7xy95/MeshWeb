@@ -98,7 +98,6 @@ function getHistory() {
 }
 function saveHistory() {
 	fs.writeFileSync(history, JSON.stringify(global.searchHistory))
-	console.log(global.searchHistory)
 }
 function addHistory(url) {
 	if (!global.settings.saveHistory) {return}

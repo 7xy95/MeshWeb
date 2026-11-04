@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.3.2</title>
+    <title>Mesh Web v1.3.5</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -519,8 +519,12 @@
 			if (activeTab.meshDomain) {
 				let meshUrl = new URL(activeTab.meshDomain)
                 let endpointUrl = new URL(u)
+                let basePath = new URL(activeTab.meshEndpoint).pathname.replace(/\/$/, "")
+				let endpointPath = endpointUrl.pathname
 
-				meshUrl.pathname = endpointUrl.pathname
+				meshUrl.pathname = endpointPath.startsWith(basePath + "/")
+                    ? endpointPath.slice(basePath.length)
+                    : endpointPath === basePath ? "/" : endpointPath
 				meshUrl.search = endpointUrl.search
 				meshUrl.hash = endpointUrl.hash
 
@@ -566,6 +570,7 @@
 				await newTab(domain, true)
 				activeTab.mesh = oldTab.mesh
 				activeTab.meshDomain = oldTab.meshDomain
+				activeTab.meshEndpoint = oldTab.meshEndpoint
 				activeTab.url = oldTab.url
 				await deleteTab(oldTab)
 				await updateUrl(activeTab.webview.getURL())
@@ -605,6 +610,12 @@
 				setMainPageUrl(domain.slice(7))
             }
 			else {
+                let meshPath = new URL(url).pathname
+                let baseEndpoint = new URL(domain)
+                if (meshPath !== "/" && baseEndpoint.pathname.endsWith(meshPath)) {
+					baseEndpoint.pathname = baseEndpoint.pathname.slice(0, -meshPath.length) || "/"
+                }
+				activeTab.meshEndpoint = baseEndpoint.href
 				await setSrc(domain)
             }
         }
