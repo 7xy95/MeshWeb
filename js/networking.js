@@ -316,6 +316,9 @@ async function runServer() {
                     ok: true
                 })
                 if (global.allNodes.includes(data.node) || data.node === tunnelUrl) {return}
+                let online = await get(data.node, "online")
+                if (!online?.ok) {return}
+
                 global.allNodes.push(data.node)
                 void broadcastNode(data.node)
                 return
@@ -385,12 +388,12 @@ async function runServer() {
                     void checkTunnel()
                     await shareUrl()
                 }
-            }
-            if (provider === "cloudflared" && text.includes("precheck complete hard_fail=false") && !isChecking) {
-                isChecking = true
-                await sleep(20_000)
-                void checkTunnel()
-                void shareUrl()
+                if (provider === "cloudflared" && !isChecking) {
+                    isChecking = true
+                    await sleep(20_000)
+                    void checkTunnel()
+                    void shareUrl()
+                }
             }
         }
 
@@ -404,7 +407,7 @@ async function runServer() {
             global.tunnelUrl = null
 
             setTimeout(() => {
-                startTunnel(provider === "cloudflared" ? "bore" : "cloudflared")
+                startTunnel(process.platform === "win32" ? "cloudflared" : provider === "cloudflared" ? "bore" : "cloudflared")
             }, 5000)
         }
         if (provider === "cloudflared") {
@@ -412,6 +415,8 @@ async function runServer() {
                 getTunnelPath("cloudflared"),
                 [
                     "tunnel",
+                    "--protocol",
+                    "http2",
                     "--url",
                     `http://127.0.0.1:${port}`
                 ],

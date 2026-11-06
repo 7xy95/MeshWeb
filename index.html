@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.3.5</title>
+    <title>Mesh Web v1.3.6</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -94,6 +94,20 @@
         .tabIcon.loading {
             animation: spin 0.7s linear infinite;
         }
+        .bookmarks {
+            display: flex;
+            width: 100%;
+            align-items: center;
+            position: absolute;
+            top: 85px;
+        }
+        .bookmark {
+            cursor: pointer;
+            margin-right: 14px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            max-width: 100px;
+        }
         @keyframes spin {
             to {transform: rotate(360deg)}
         }
@@ -110,7 +124,6 @@
         #domainInfo {
             position: relative;
             left: 4px;
-            bottom: 8px;
 
             color: #dfe6ed;
             font-size: 16px;
@@ -130,6 +143,15 @@
         #popupInfoText {
             margin: 8px;
         }
+        #bookmarkPage {
+            position: absolute;
+            right: 8px;
+            cursor: pointer;
+        }
+        #bookmarkedPages {
+            position: absolute;
+            left: 6px;
+        }
     </style>
 </head>
 <body>
@@ -137,12 +159,18 @@
     <div class="tabIcons" id="tabIcons">
         <button class="tabBtn" id="newTabBtn" style="margin-right: 28px;">+</button>
     </div>
-    <button id="back" class="topArrow">←</button>
-    <button id="forward" class="topArrow">→</button>
-    <input style="width: 50vw; margin: 5px" id="urlInput">
-    <a id="domainInfo" onclick="updateInfo()">ⓘ</a>
-    <div id="infoPopup" popover>
-        <p id="popupInfoText"></p>
+    <div class="normalSearch">
+        <button id="back" class="topArrow">←</button>
+        <button id="forward" class="topArrow">→</button>
+        <input style="width: 50vw; margin: 5px" id="urlInput">
+        <a id="domainInfo" onclick="updateInfo()">ⓘ</a>
+        <div id="infoPopup" popover>
+            <p id="popupInfoText"></p>
+        </div>
+    </div>
+    <div class="bookmarks">
+        <a onclick="addBookmark()" id="bookmarkPage">Bookmark page</a>
+        <div id="bookmarkedPages"></div>
     </div>
     <p id="connection"></p>
 </div>
@@ -213,9 +241,12 @@
 	async function isOnlyWindow() {
 		return await get("require('electron').BrowserWindow.getAllWindows().length === 1")
     }
+	async function getBookmarks() {
+		return await get('global.bookmarks')
+    }
 	function closeWindow() {
 		run("require('electron').BrowserWindow.getFocusedWindow()?.close()")
-    }
+	}
 
     window.addEventListener("error", (error) => {
         console.log(error)
@@ -477,6 +508,41 @@
         }
     }
 
+	async function addBookmark() {
+        let bookmarks = await getBookmarks()
+        console.log(bookmarks)
+        bookmarks[urlInput.value] = activeTab.title.innerText.split(/\s+[|–—\-·]\s+/)[0].trim()
+		console.log(bookmarks)
+        displayBookmarks(bookmarks)
+        run(`global.bookmarks = ${JSON.stringify(bookmarks)}`)
+		console.log(bookmarks)
+    }
+	function displayBookmarks(bookmarks) {
+		let t = ""
+		for (let [url, title] of Object.entries(bookmarks)) {
+			t += `<a class="bookmark" onclick='parseUrlInput(${JSON.stringify(url)})'>${title}</a>`
+        }
+		document.getElementById("bookmarkedPages").innerHTML = t
+    }
+	async function checkForRemoveBookmark() {
+		let bookmarks = await getBookmarks()
+		if (bookmarks[urlInput.value]) {
+			document.getElementById("bookmarkPage").innerText = "Remove Bookmark"
+			document.getElementById("bookmarkPage").onclick = removeBookmark
+		}
+		else {
+			document.getElementById("bookmarkPage").innerText = "Bookmark Page"
+			document.getElementById("bookmarkPage").onclick = addBookmark
+		}
+    }
+	async function removeBookmark() {
+		let bookmarks = await getBookmarks()
+		delete bookmarks[urlInput.value]
+		displayBookmarks(bookmarks)
+		run(`global.bookmarks = ${JSON.stringify(bookmarks)}`)
+        checkForRemoveBookmark()
+    }
+
 	async function start() {
 		if (await isOnlyWindow() && (await getSettings()).restoreTabsAfterRestart) {
 			void loadTabs()
@@ -484,6 +550,7 @@
 		else {
 			void newTab()
 		}
+		displayBookmarks(await getBookmarks())
     }
 	start()
     document.getElementById("newTabBtn").addEventListener("click", () => {
@@ -502,6 +569,7 @@
 
     async function updateUrl(u) {
 		if (!u) {return}
+		checkForRemoveBookmark()
         let url = new URL(u)
         if (url.protocol === "file:" && url.pathname.endsWith(".html") && url.pathname.includes("mainPage/")) {
             let name = url.pathname.match(/mainPage\/([^/]+)\.html$/)[1]
@@ -669,6 +737,7 @@
     setInterval(() => {
 		saveTabs()
     }, 5000)
+
 </script>
 </body>
 </html>

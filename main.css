@@ -63,14 +63,22 @@ input:focus {
     border: none;
 }
 .tabs {
-    height: 80px;
+    height: 105px;
     width: 100%;
     display: flex;
     justify-content: center;
     flex: none;
-    align-items: flex-end;
+    align-items: flex-start;
     background-color: #2c2c2c;
     position: relative;
+}
+.normalSearch {
+    position: absolute;
+    top: 40px;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    display: flex;
 }
 .page {
     height: 100%;

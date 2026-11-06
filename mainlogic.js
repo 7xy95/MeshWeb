@@ -12,6 +12,7 @@ require("./js/new.js")
 require("./js/mining.js")
 
 global.domains = []
+global.bookmarks = storage.getBookmarks()
 global.searchHistory = storage.getHistory()
 global.allNodes = storage.getPeers()
 global.privateKey = null
@@ -49,6 +50,7 @@ async function startApp(window) {
                 storage.savePeers()
                 storage.saveHistory()
                 storage.saveSettings()
+                storage.saveBookmarks()
             }
         }, 30_000)
     }

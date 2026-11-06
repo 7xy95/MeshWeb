@@ -165,6 +165,8 @@ app.on("will-quit", () => {
 app.on("before-quit", async () => {
     if (global.domains.length !== 0) {
         storage.saveDomains()
+        storage.savePeers()
+        storage.saveBookmarks()
         if (global.settings.clearHistoryOnExit) {
             storage.clearHistory()
             storage.saveHistory()

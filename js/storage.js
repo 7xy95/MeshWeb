@@ -7,6 +7,7 @@ const peers = path.join(dataDir, "peers.json")
 const history = path.join(dataDir, "history.json")
 const settings = path.join(dataDir, "settings.json")
 const domainKeys = path.join(dataDir, "domainKeys.json")
+const bookmarks = path.join(dataDir, "bookmarks.json")
 
 function getDomains() {
 	try {
@@ -21,6 +22,21 @@ function getDomains() {
 }
 function saveDomains() {
 	fs.writeFileSync(session, JSON.stringify(global.domains))
+}
+
+function getBookmarks() {
+	try {
+		if (!fs.existsSync(bookmarks)) {
+			fs.writeFileSync(bookmarks, "{}")
+		}
+		return JSON.parse(fs.readFileSync(bookmarks, "utf-8"))
+	}
+	catch {
+		return {}
+	}
+}
+function saveBookmarks() {
+	fs.writeFileSync(bookmarks, JSON.stringify(global.bookmarks))
 }
 
 function getPeers() {
@@ -137,5 +153,7 @@ module.exports = {
 	getSettings,
 	saveSettings,
 	addHistory,
-	clearHistory
+	clearHistory,
+	getBookmarks,
+	saveBookmarks
 }
