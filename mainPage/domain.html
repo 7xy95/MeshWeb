@@ -87,6 +87,15 @@
     function run(code) {
         window.mesh.run(code)
     }
+	function getHashrate(hashrate) {
+		let names = ["H", "KH", "MH", "GH", "TH", "PH"]
+        let i = 0
+        while (hashrate > 1000) {
+			i++
+            hashrate = hashrate/1000
+        }
+		return `Hashrate: ${hashrate.toPrecision(4)}${names[i]}/s`
+    }
     async function get(code) {
 		return await window.mesh.get(code)
     }
@@ -127,8 +136,9 @@
                 Domain: ${name}<br>
                 Endpoint: <span style="color: red">Unregistered</span><br>
                 Difficulty: 31<br>
-                Est time to mine: ${getTime(estTime)}<br>
                 Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}</span>
+                <br>${isMining ? `Est time to mine: ${getTime(estTime)}` : "&nbsp;"}
+                <br>${isMining ? `${getHashrate(hashrate)}` : "&nbsp;"}
             `
             return
         }
@@ -140,9 +150,9 @@
             Domain: ${domain[0]}<br>
             Endpoint: ${domain[3]}<br>
             Difficulty: ${difficulty.toFixed(2)}<br>
-            Est time to mine: ${getTime(estTime)}<br>
-            Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}
-            </span>
+            Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}</span>
+            <br>${isMining ? `Est time to mine: ${getTime(estTime)}` : "&nbsp;"}
+            <br>${isMining ? `${getHashrate(hashrate)}` : "&nbsp;"}
         `
     }
 

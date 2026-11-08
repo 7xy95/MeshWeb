@@ -317,7 +317,7 @@ async function runServer() {
                 })
                 if (global.allNodes.includes(data.node) || data.node === tunnelUrl) {return}
                 let online = await get(data.node, "online")
-                if (!online?.ok) {return}
+                if (!online?.ok || global.allNodes.includes(data.node)) {return}
 
                 global.allNodes.push(data.node)
                 void broadcastNode(data.node)

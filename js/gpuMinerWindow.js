@@ -1,10 +1,12 @@
 const { ipcRenderer } = require("electron")
+const crypto = require("node:crypto")
 
 const WORKGROUP_SIZE = 256
+const HASHES_PER_THREAD = 8 // Benchmark 1, 2, 4, 8, or 16
 const RESULT_WORDS = 10
 const MAX_ATTEMPTS = 50_000_000
 const MAX_WORKGROUPS =
-    Math.ceil(MAX_ATTEMPTS / WORKGROUP_SIZE)
+    Math.ceil(MAX_ATTEMPTS / (WORKGROUP_SIZE * HASHES_PER_THREAD))
 const MAX_RESULT_BYTES =
     MAX_WORKGROUPS * RESULT_WORDS * 4
 
@@ -160,6 +162,60 @@ function precomputePrefix(prefix) {
     }
 }
 
+function precomputeFirstRoundState(initialHash, prefixTailWords, roundCount) {
+    const state = Array.from(initialHash, value => value >>> 0)
+    let [a, b, c, d, e, f, g, h] = state
+    for (let round = 0; round < roundCount; round++) {
+        const word = prefixTailWords[round] >>> 0
+        const bigSigmaOne = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)
+        const choose = g ^ (e & (f ^ g))
+        const tempOne = (h + bigSigmaOne + choose + SHA256_K[round] + word) >>> 0
+        const bigSigmaZero = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)
+        const majority = (a & b) | (c & (a | b))
+        const tempTwo = (bigSigmaZero + majority) >>> 0
+        h = g; g = f; f = e; e = (d + tempOne) >>> 0
+        d = c; c = b; b = a; a = (tempOne + tempTwo) >>> 0
+    }
+    const logicalState = [a, b, c, d, e, f, g, h]
+    const physicalState = new Uint32Array(8)
+    for (let position = 0; position < 8; position++) {
+        // Round n refers to logical register i through physical register (i-n) mod 8.
+        physicalState[(position - roundCount + 64) & 7] = logicalState[position]
+    }
+    return physicalState
+}
+
+function createMessageBlockCode(prefixTailLen, blockIndex) {
+    const statements = []
+    for (let digitIndex = 0; digitIndex < 20; digitIndex++) {
+        const position = prefixTailLen + digitIndex
+        if ((position >>> 6) !== blockIndex) continue
+        const slot = (position & 63) >>> 2
+        const shift = (3 - (position & 3)) * 8
+        statements.push(`if (nonce.length > ${digitIndex}u) { words[${slot}] = words[${slot}] | (nonce.bytes[${digitIndex}] << ${shift}u); }`)
+    }
+    const base = blockIndex === 0 ? 'inputData.prefixTailWords' : 'array<u32, 16>()'
+    const offset = blockIndex === 0 ? 'paddingOffset' : '(paddingOffset - 64u)'
+    const paddingCondition = blockIndex === 0 ? 'paddingOffset < 64u' : 'paddingOffset >= 64u'
+    const lengthCondition = blockIndex === 0 ? 'blockCount == 1u' : 'true'
+    return `fn makeMessageBlock${blockIndex}(nonce: DecimalNonce, blockCount: u32) -> array<u32, 16> {
+    var words = ${base};
+    ${statements.join('\n    ')}
+    let paddingOffset = ${prefixTailLen}u + nonce.length;
+    if (${paddingCondition}) {
+        let offset = ${offset};
+        let slot = (offset & 63u) >> 2u;
+        let shift = (3u - (offset & 3u)) * 8u;
+        words[slot] = words[slot] | (0x80u << shift);
+    }
+    if (${lengthCondition}) {
+        words[14] = 0u;
+        words[15] = (inputData.prefixLen + nonce.length) * 8u;
+    }
+    return words;
+}`
+}
+
 function hashWordsLess(a, aOffset, b, bOffset) {
     for (let i = 0; i < 8; i++) {
         const av = a[aOffset + i] >>> 0
@@ -184,6 +240,26 @@ function hashWordsToHex(words, offset) {
     return hex
 }
 
+function createCompressionRounds(startRound = 0) {
+    let rounds = ""
+    const names = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    for (let round = startRound; round < 64; round++) {
+        const slot = round & 15
+        const word = `w[${slot}]`
+        if (round >= 16) {
+            rounds += `${word} = ${word} + ss0(w[${(round - 15) & 15}]) + w[${(round - 7) & 15}] + ss1(w[${(round - 2) & 15}]);\n`
+        }
+        // Rotate names instead of copying six state values each round.
+        // The previous 'h' becomes next 'a', and previous 'd' becomes next 'e'.
+        const register = offset => names[(offset - round + 64) & 7]
+        const [a, b, c, d, e, f, g, h] = Array.from({length: 8}, (_, offset) => register(offset))
+        rounds += `let temp1Round${round} = ${h} + bs1(${e}) + ch(${e}, ${f}, ${g}) + 0x${SHA256_K[round].toString(16).padStart(8, "0")}u + ${word};\n`
+        rounds += `let temp2Round${round} = bs0(${a}) + maj(${a}, ${b}, ${c});\n`
+        rounds += `${h} = temp1Round${round} + temp2Round${round}; ${d} = ${d} + temp1Round${round};\n`
+    }
+    return rounds
+}
+
 async function initGpuMiner() {
     if (gpuMinerState) {
         return gpuMinerState
@@ -206,7 +282,33 @@ async function initGpuMiner() {
     const maxComputeWorkgroupsPerDimension =
         adapter.limits.maxComputeWorkgroupsPerDimension
 
-    const shaderCode = `
+    const bindGroupLayout =
+        device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility:
+                        GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: "read-only-storage"
+                    }
+                },
+                {
+                    binding: 1,
+                    visibility:
+                        GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: "storage"
+                    }
+                }
+            ]
+        })
+
+    const pipelineCache = new Map()
+    function getPipeline(prefixTailLen) {
+        if (pipelineCache.has(prefixTailLen)) return pipelineCache.get(prefixTailLen)
+        const firstRounds = Math.floor(prefixTailLen / 4)
+        const shaderCode = `
 struct InputData {
     prefixLen: u32,
     prefixTailLen: u32,
@@ -217,7 +319,10 @@ struct InputData {
     groupCount: u32,
     _pad: u32,
     initialHash: array<u32, 8>,
-    prefixTail: array<u32, 64>,
+    prefixTailWords: array<u32, 16>,
+    startNonceDigits: array<u32, 20>,
+    startNonceLength: u32,
+    firstRoundState: array<u32, 8>,
 };
 
 struct DecimalNonce {
@@ -259,11 +364,11 @@ fn rotr(x: u32, n: u32) -> u32 {
 }
 
 fn ch(x: u32, y: u32, z: u32) -> u32 {
-    return (x & y) ^ ((~x) & z);
+    return z ^ (x & (y ^ z));
 }
 
 fn maj(x: u32, y: u32, z: u32) -> u32 {
-    return (x & y) ^ (x & z) ^ (y & z);
+    return (x & y) | (z & (x | y));
 }
 
 fn bs0(x: u32) -> u32 {
@@ -304,128 +409,71 @@ fn addIndexToNonce(
     );
 }
 
-fn decimalNonce(
-    low: u32,
-    high: u32
-) -> DecimalNonce {
+// The CPU supplies the starting nonce as 20 ASCII digits (zero-padded).
+// Each GPU invocation adds its index directly to those digits instead of
+// converting a full uint64 to decimal via repeated 16-bit limb division.
+fn decimalNonce(index: u32) -> DecimalNonce {
     var output: DecimalNonce;
-    var reversed = array<u32, 20>();
-
-    var limbs = array<u32, 4>(
-        (high >> 16u) & 0xffffu,
-        high & 0xffffu,
-        (low >> 16u) & 0xffffu,
-        low & 0xffffu
-    );
-
-    if (high == 0u && low == 0u) {
-        output.length = 1u;
-        output.bytes[0] = 48u;
-        return output;
-    }
-
-    var count = 0u;
+    var digits = inputData.startNonceDigits;
+    var carry = index;
+    var position = 20u;
+    var nonceLength = inputData.startNonceLength;
 
     loop {
-        if (
-            limbs[0] == 0u &&
-            limbs[1] == 0u &&
-            limbs[2] == 0u &&
-            limbs[3] == 0u
-        ) {
+        if (carry == 0u || position == 0u) {
             break;
         }
 
-        var carry = 0u;
-
-        for (
-            var i = 0u;
-            i < 4u;
-            i = i + 1u
-        ) {
-            let current =
-                carry * 65536u +
-                limbs[i];
-
-            limbs[i] = current / 10u;
-            carry = current % 10u;
+        position = position - 1u;
+        let digitSum = digits[position] - 48u + (carry % 10u);
+        digits[position] = 48u + (digitSum % 10u);
+        carry = carry / 10u + digitSum / 10u;
+        if (digits[position] != 48u) {
+            nonceLength = max(nonceLength, 20u - position);
         }
-
-        reversed[count] = 48u + carry;
-        count = count + 1u;
     }
 
-    output.length = count;
-
-    for (
-        var i = 0u;
-        i < count;
-        i = i + 1u
-    ) {
-        output.bytes[i] =
-            reversed[count - i - 1u];
+    output.length = nonceLength;
+    for (var i = 0u; i < nonceLength; i = i + 1u) {
+        output.bytes[i] = digits[20u - nonceLength + i];
     }
-
     return output;
 }
 
-fn remainingMessageByte(
-    index: u32,
-    remainingTotalLen: u32,
-    paddedRemainingLen: u32,
-    totalMessageLen: u32,
-    nonce: DecimalNonce
-) -> u32 {
-    if (index < remainingTotalLen) {
-        if (index < inputData.prefixTailLen) {
-            return inputData.prefixTail[index] & 255u;
+// Increment an already-ASCII nonce; no binary-to-decimal conversion.
+fn incrementDecimalNonce(nonce: ptr<function, DecimalNonce>) {
+    var position = (*nonce).length;
+    loop {
+        if (position == 0u) {
+            // An extra digit appears at 9 -> 10, 99 -> 100, etc.
+            if ((*nonce).length < 20u) {
+                for (var i = (*nonce).length; i > 0u; i = i - 1u) {
+                    (*nonce).bytes[i] = (*nonce).bytes[i - 1u];
+                }
+                (*nonce).bytes[0] = 49u;
+                (*nonce).length = (*nonce).length + 1u;
+            }
+            break;
         }
-
-        return nonce.bytes[
-            index - inputData.prefixTailLen
-        ];
-    }
-
-    if (index == remainingTotalLen) {
-        return 0x80u;
-    }
-
-    if (index >= paddedRemainingLen - 8u) {
-        let bitLen = totalMessageLen * 8u;
-        let shiftIndex =
-            paddedRemainingLen - 1u - index;
-
-        if (shiftIndex >= 4u) {
-            return 0u;
+        position = position - 1u;
+        if ((*nonce).bytes[position] != 57u) {
+            (*nonce).bytes[position] = (*nonce).bytes[position] + 1u;
+            break;
         }
-
-        return (
-            bitLen >>
-            (shiftIndex * 8u)
-        ) & 255u;
+        (*nonce).bytes[position] = 48u;
     }
-
-    return 0u;
 }
 
-fn compress(
-    hashPointer: ptr<function, array<u32, 8>>,
-    wInput: ptr<function, array<u32, 64>>
-) {
-    var w = *wInput;
+// Specialize each prefix-tail layout at shader compilation time.
+// Only the nonce-dependent bytes are written in each invocation.
+${createMessageBlockCode(prefixTailLen, 0)}
+${createMessageBlockCode(prefixTailLen, 1)}
 
-    for (
-        var i = 16u;
-        i < 64u;
-        i = i + 1u
-    ) {
-        w[i] =
-            ss1(w[i - 2u]) +
-            w[i - 7u] +
-            ss0(w[i - 15u]) +
-            w[i - 16u];
-    }
-
+// 16-word rolling message schedule, all 64 rounds statically unrolled.
+// The indices and K constants are literals so the compiler can use direct
+// register references rather than dynamic array accesses.
+fn compress(hashPointer: ptr<function, array<u32, 8>>, inputWords: array<u32, 16>) {
+    var w = inputWords;
     var a = (*hashPointer)[0];
     var b = (*hashPointer)[1];
     var c = (*hashPointer)[2];
@@ -435,139 +483,56 @@ fn compress(
     var g = (*hashPointer)[6];
     var h = (*hashPointer)[7];
 
-    for (
-        var i = 0u;
-        i < 64u;
-        i = i + 1u
-    ) {
-        let t1 =
-            h +
-            bs1(e) +
-            ch(e, f, g) +
-            K[i] +
-            w[i];
+    ${createCompressionRounds()}
 
-        let t2 =
-            bs0(a) +
-            maj(a, b, c);
-
-        h = g;
-        g = f;
-        f = e;
-        e = d + t1;
-        d = c;
-        c = b;
-        b = a;
-        a = t1 + t2;
-    }
-
-    (*hashPointer)[0] =
-        (*hashPointer)[0] + a;
-    (*hashPointer)[1] =
-        (*hashPointer)[1] + b;
-    (*hashPointer)[2] =
-        (*hashPointer)[2] + c;
-    (*hashPointer)[3] =
-        (*hashPointer)[3] + d;
-    (*hashPointer)[4] =
-        (*hashPointer)[4] + e;
-    (*hashPointer)[5] =
-        (*hashPointer)[5] + f;
-    (*hashPointer)[6] =
-        (*hashPointer)[6] + g;
-    (*hashPointer)[7] =
-        (*hashPointer)[7] + h;
+    (*hashPointer)[0] = (*hashPointer)[0] + a;
+    (*hashPointer)[1] = (*hashPointer)[1] + b;
+    (*hashPointer)[2] = (*hashPointer)[2] + c;
+    (*hashPointer)[3] = (*hashPointer)[3] + d;
+    (*hashPointer)[4] = (*hashPointer)[4] + e;
+    (*hashPointer)[5] = (*hashPointer)[5] + f;
+    (*hashPointer)[6] = (*hashPointer)[6] + g;
+    (*hashPointer)[7] = (*hashPointer)[7] + h;
 }
 
-fn sha256Header(
-    nonceLow: u32,
-    nonceHigh: u32
-) -> array<u32, 8> {
+
+// CPU precomputes rounds preceding the first nonce word.
+// This avoids re-running fixed prefix rounds for every GPU hash.
+fn compressFirst(hashPointer: ptr<function, array<u32, 8>>, inputWords: array<u32, 16>) {
+    var w = inputWords;
+    var a = inputData.firstRoundState[0];
+    var b = inputData.firstRoundState[1];
+    var c = inputData.firstRoundState[2];
+    var d = inputData.firstRoundState[3];
+    var e = inputData.firstRoundState[4];
+    var f = inputData.firstRoundState[5];
+    var g = inputData.firstRoundState[6];
+    var h = inputData.firstRoundState[7];
+
+    ${createCompressionRounds(Math.floor(prefixTailLen / 4))}
+
+    (*hashPointer)[0] = (*hashPointer)[0] + a;
+    (*hashPointer)[1] = (*hashPointer)[1] + b;
+    (*hashPointer)[2] = (*hashPointer)[2] + c;
+    (*hashPointer)[3] = (*hashPointer)[3] + d;
+    (*hashPointer)[4] = (*hashPointer)[4] + e;
+    (*hashPointer)[5] = (*hashPointer)[5] + f;
+    (*hashPointer)[6] = (*hashPointer)[6] + g;
+    (*hashPointer)[7] = (*hashPointer)[7] + h;
+}
+
+fn sha256Header(nonce: DecimalNonce) -> array<u32, 8> {
     var hash = inputData.initialHash;
+    let remainingTotalLen = ${prefixTailLen}u + nonce.length;
+    let blockCount = select(1u, 2u, remainingTotalLen > 55u);
 
-    let nonce =
-        decimalNonce(nonceLow, nonceHigh);
+    let block0 = makeMessageBlock0(nonce, blockCount);
+    compressFirst(&hash, block0);
 
-    let totalMessageLen =
-        inputData.prefixLen +
-        nonce.length;
-
-    let remainingTotalLen =
-        inputData.prefixTailLen +
-        nonce.length;
-
-    let paddedRemainingLen =
-        (
-            remainingTotalLen +
-            9u +
-            63u
-        ) / 64u * 64u;
-
-    let blockCount =
-        paddedRemainingLen / 64u;
-
-    for (
-        var blockIndex = 0u;
-        blockIndex < blockCount;
-        blockIndex = blockIndex + 1u
-    ) {
-        var w = array<u32, 64>();
-
-        for (
-            var i = 0u;
-            i < 16u;
-            i = i + 1u
-        ) {
-            let base =
-                blockIndex * 64u +
-                i * 4u;
-
-            let b0 =
-                remainingMessageByte(
-                    base,
-                    remainingTotalLen,
-                    paddedRemainingLen,
-                    totalMessageLen,
-                    nonce
-                );
-
-            let b1 =
-                remainingMessageByte(
-                    base + 1u,
-                    remainingTotalLen,
-                    paddedRemainingLen,
-                    totalMessageLen,
-                    nonce
-                );
-
-            let b2 =
-                remainingMessageByte(
-                    base + 2u,
-                    remainingTotalLen,
-                    paddedRemainingLen,
-                    totalMessageLen,
-                    nonce
-                );
-
-            let b3 =
-                remainingMessageByte(
-                    base + 3u,
-                    remainingTotalLen,
-                    paddedRemainingLen,
-                    totalMessageLen,
-                    nonce
-                );
-
-            w[i] =
-                (b0 << 24u) |
-                (b1 << 16u) |
-                (b2 << 8u) |
-                b3;
-        }
-
-        compress(&hash, &w);
+    if (blockCount == 2u) {
+        let block1 = makeMessageBlock1(nonce, blockCount);
+        compress(&hash, block1);
     }
-
     return hash;
 }
 
@@ -612,8 +577,7 @@ fn main(
     }
 
     let index =
-        groupIndex * 256u +
-        localId;
+        (groupIndex * 256u + localId) * ${HASHES_PER_THREAD}u;
 
     var hash = array<u32, 8>(
         0xffffffffu,0xffffffffu,
@@ -626,19 +590,32 @@ fn main(
     var nonceHigh = 0xffffffffu;
 
     if (index < inputData.attempts) {
-        let nonce = addIndexToNonce(
+        var nonceDigits = decimalNonce(index);
+        var nonce = addIndexToNonce(
             inputData.startNonceLow,
             inputData.startNonceHigh,
             index
         );
 
-        nonceLow = nonce.x;
-        nonceHigh = nonce.y;
+        for (var i = 0u; i < ${HASHES_PER_THREAD}u; i = i + 1u) {
+            if (index + i >= inputData.attempts) {
+                break;
+            }
 
-        hash = sha256Header(
-            nonceLow,
-            nonceHigh
-        );
+            let candidateHash = sha256Header(nonceDigits);
+            if (hashLess(candidateHash, hash)) {
+                hash = candidateHash;
+                nonceLow = nonce.x;
+                nonceHigh = nonce.y;
+            }
+
+            if (i + 1u < ${HASHES_PER_THREAD}u) {
+                incrementDecimalNonce(&nonceDigits);
+                let nextLow = nonce.x + 1u;
+                nonce.y = nonce.y + select(0u, 1u, nextLow == 0u);
+                nonce.x = nextLow;
+            }
+        }
     }
 
     localHashes[localId] = hash;
@@ -711,27 +688,7 @@ fn main(
             code: shaderCode
         })
 
-    const bindGroupLayout =
-        device.createBindGroupLayout({
-            entries: [
-                {
-                    binding: 0,
-                    visibility:
-                        GPUShaderStage.COMPUTE,
-                    buffer: {
-                        type: "read-only-storage"
-                    }
-                },
-                {
-                    binding: 1,
-                    visibility:
-                        GPUShaderStage.COMPUTE,
-                    buffer: {
-                        type: "storage"
-                    }
-                }
-            ]
-        })
+
 
     const pipeline =
         device.createComputePipeline({
@@ -746,9 +703,12 @@ fn main(
                 entryPoint: "main"
             }
         })
+        pipelineCache.set(prefixTailLen, pipeline)
+        return pipeline
+    }
 
     const inputBufferSize =
-        (8 + 8 + 64) * 4
+        (8 + 8 + 16 + 20 + 1 + 8) * 4
 
     const inputBuffer =
         device.createBuffer({
@@ -795,7 +755,7 @@ fn main(
 
     gpuMinerState = {
         device,
-        pipeline,
+        getPipeline,
         inputBuffer,
         resultBuffer,
         readBuffer,
@@ -828,7 +788,7 @@ async function gpuMine(
 
     const workgroupsNeeded =
         Math.ceil(
-            attempts / WORKGROUP_SIZE
+            attempts / (WORKGROUP_SIZE * HASHES_PER_THREAD)
         )
 
     const workgroupsX =
@@ -854,7 +814,7 @@ async function gpuMine(
 
     const inputU32 =
         new Uint32Array(
-            8 + 8 + 64
+            8 + 8 + 16 + 20 + 1 + 8
         )
 
     inputU32[0] =
@@ -879,10 +839,34 @@ async function gpuMine(
         8
     )
 
+    // Prepack prefix bytes into 16 big-endian SHA-256 words.
+    // This replaces 64 per-byte shader lookups with 16 fixed words.
+    for (let i = 0; i < prefixData.prefixTailLen; i++) {
+        const wordIndex = i >>> 2
+        const shift = (3 - (i & 3)) * 8
+        inputU32[16 + wordIndex] |= prefixData.prefixTail[i] << shift
+    }
+
+    // Construct the batch's starting nonce as ASCII exactly once on the CPU.
+    // The GPU adds each invocation index to these decimal digits.
+    const startNonce =
+        (BigInt(startNonceHigh >>> 0) << 32n) |
+        BigInt(startNonceLow >>> 0)
+    const startNonceText = startNonce.toString()
+    const paddedNonceText = startNonceText.padStart(20, "0")
+
+    for (let i = 0; i < 20; i++) {
+        inputU32[32 + i] = paddedNonceText.charCodeAt(i)
+    }
+    inputU32[52] = startNonceText.length
+
+    const prefixWords = inputU32.subarray(16, 32)
+    const firstRounds = Math.floor(prefixData.prefixTailLen / 4)
     inputU32.set(
-        prefixData.prefixTail,
-        16
+        precomputeFirstRoundState(prefixData.initialHash, prefixWords, firstRounds),
+        53
     )
+    const pipeline = state.getPipeline(prefixData.prefixTailLen)
 
     state.device.queue.writeBuffer(
         state.inputBuffer,
@@ -901,7 +885,7 @@ async function gpuMine(
     const pass =
         encoder.beginComputePass()
 
-    pass.setPipeline(state.pipeline)
+    pass.setPipeline(pipeline)
     pass.setBindGroup(0, state.bindGroup)
 
     pass.dispatchWorkgroups(
@@ -990,6 +974,13 @@ async function gpuMine(
             results,
             base + 2
         )
+
+    const actualHash = crypto.createHash("sha256")
+        .update(prefix + nonce)
+        .digest("hex")
+    if (hash !== actualHash) {
+        throw new Error(`GPU SHA-256 mismatch: GPU=${hash}, CPU=${actualHash}, nonce=${nonce}`)
+    }
 
     return {
         ok: true,

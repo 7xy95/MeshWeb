@@ -9,11 +9,11 @@ async function mine(domain, endpoint) {
     domainTo = domain
     endpointTo = endpoint
     let i = require("crypto").randomBytes(8).readBigUInt64BE() % (18n * 10n**18n)
-    // best = global.getDomainDifficulty(domain)
+    best = global.getDomainDifficulty(domain)
     while (true) {
         if (stop) {stop = false; break}
 
-        let t = Date.now()
+        let t = performance.now()
 
         let result = await gpuMiner.mine(domain, global.publicKey, i)
         let hash = 256 - Math.log2(Number(BigInt("0x" + result.hash)))
@@ -26,7 +26,7 @@ async function mine(domain, endpoint) {
         }
 
         i += 50_000_000n
-        lastT = Date.now()-t
+        lastT = performance.now()-t
     }
 }
 function stopMining() {

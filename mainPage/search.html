@@ -106,7 +106,7 @@
 </div>
 </body>
 <script>
-    const VERSION = "v1.3.6"
+    const VERSION = "v1.3.7"
     document.getElementById("version").innerText = VERSION
 
     async function setUrl(url) {
@@ -163,18 +163,6 @@
         return suggestions
     }
 	async function getSearchEngine() {
-		let searchEngine = (await getSettings()).searchEngine
-        searchEngine = searchEngine.replace("https://", "")
-		searchEngine = searchEngine.replace("www.", "")
-		searchEngine = searchEngine.replace(".com", "")
-        let i = searchEngine.indexOf("/")
-        searchEngine = searchEngine.slice(0, i)
-        if (searchEngine === "google") {return "https://suggestqueries.google.com/complete/search?client=chrome&q="}
-		if (searchEngine === "bing") {return "https://api.bing.com/osjson.aspx?query="}
-		if (searchEngine === "duckduckgo") {return "https://duckduckgo.com/ac/?q="}
-		if (searchEngine === "brave") {return "https://search.brave.com/api/suggest?q="}
-		if (searchEngine === "ecosia") {return "https://ac.ecosia.org/autocomplete?q="}
-		if (searchEngine === "qwant") {return "https://api.qwant.com/api/suggest/?q="}
 		return "https://suggestqueries.google.com/complete/search?client=chrome&q="
     }
 
