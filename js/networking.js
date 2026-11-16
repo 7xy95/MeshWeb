@@ -2,12 +2,13 @@ const http = require("node:http")
 const { spawn } = require("node:child_process")
 const { app, net } = require("electron")
 const path = require("path")
-const {sync} = require("./sync");
+const { sync } = require("./sync")
 
 let server = null
 let port = null
 let tunnelProcess = null
 let tunnelUrl = null
+global.connected = false
 
 async function updateURL() {
     try {
@@ -23,7 +24,7 @@ async function updateURL() {
     }
     catch (error) {console.log(error)}
 }
-async function get(nodeUrl, request, timeout=3) {
+async function get(nodeUrl, request, timeout=3, giveStatus=false) {
     let controller = new AbortController()
     let timer = setTimeout(() => controller.abort(), timeout*1000)
     try {
@@ -33,15 +34,17 @@ async function get(nodeUrl, request, timeout=3) {
             signal: controller.signal
         })
         if (!response.ok) {
-            console.log("GET error:", response.status, nodeUrl + request)
-            console.log("Response:", (await response.text()).slice(0, 500))
-            return null
+            if (giveStatus) {
+                return response.status
+            }
+            else {
+                return null
+            }
         }
 
         return await response.json()
     }
     catch (error) {
-        console.log("GET error:", nodeUrl + request, error)
         return null
     }
     finally {
@@ -143,6 +146,7 @@ function getTunnelPath(name="tunnel") {
 }
 
 async function runServer() {
+    let requests = new Map()
     function readBody(req, maxSize) {
         return new Promise((resolve, reject) => {
             let body = ""
@@ -172,16 +176,51 @@ async function runServer() {
         })
         res.end(JSON.stringify(data))
     }
+    function rateLimit(req) {
+        let ip = req.headers["cf-connecting-ip"] || req.socket.remoteAddress
+        let now = Date.now()
+        let entry = requests.get(ip)
+        if (!entry || now - entry.start > 1000) {
+            entry = {start: now, count: 0}
+            requests.set(ip, entry)
+        }
+        return ++entry.count > 30
+    }
     if (server) {return}
 
     server = http.createServer({
         maxHeaderSize: 2048
     }, async (req, res) => {
         try {
+            if (rateLimit(req)) {
+                sendJSON(res, 429, {
+                    ok: false,
+                    error: "Too Many Requests"
+                })
+                return
+            }
+            function manageChars(req) {
+                let u = new URL(req.url, "http://localhost")
+                let chars = JSON.parse(u.searchParams.get("chars"))
+                if (!Array.isArray(chars) || chars.length > 64 ||
+                    chars.some(char => typeof char !== "string" || char.length > 256)) {
+                    sendJSON(res, 400, {
+                        ok: false,
+                        error: "Invalid prefixes"
+                    })
+                    return null
+                }
+
+                let matches = []
+                for (let char of chars) {
+                    matches.push(...domains.filter((d) => d[0].startsWith(char)))
+                }
+                return matches
+            }
             if (req.method === "GET" && req.url === "/routes") {
                 sendJSON(res, 200, {
                     ok: true,
-                    routes: JSON.stringify(["/peers", "/online", "/hash",
+                    routes: JSON.stringify(["/peers", "/online", "/hash", "/hash?chars",
                         "/routes", "/domains", "/domains?chars", "/domains?name", "/domains?key"])
                 })
             }
@@ -206,6 +245,16 @@ async function runServer() {
                 })
                 return
             }
+            if (req.method === "GET" && req.url.startsWith("/hash?chars")) {
+                global.sortDomains()
+                let matches = manageChars(req)
+                if (matches === null) return
+                sendJSON(res, 200, {
+                    ok: true,
+                    hash: require("crypto").createHash("sha256").update(JSON.stringify(matches)).digest("hex")
+                })
+                return
+            }
             if (req.method === "GET" && req.url === "/domains") {
                 sendJSON(res, 200, {
                     ok: true,
@@ -214,13 +263,8 @@ async function runServer() {
                 return
             }
             if (req.method === "GET" && req.url.startsWith("/domains?chars")) {
-                let u = new URL(req.url, "http://localhost")
-                let chars = JSON.parse(u.searchParams.get("chars"))
-
-                let matches = []
-                for (let char of chars) {
-                    matches.push(...domains.filter((d) => d[0].startsWith(char)))
-                }
+                let matches = manageChars(req)
+                if (matches === null) return
                 if (matches.length > 2048) {
                     sendJSON(res, 422, {
                         ok: false,
@@ -300,7 +344,7 @@ async function runServer() {
                 let valid = global.newDomain(data.domain)
                 if (!valid) {return}
 
-                void broadcastDomain(data.domain)
+                void broadcastDomain(data.domain, 8)
                 return
             }
             if (req.method === "POST" && req.url === "/node") {
@@ -338,10 +382,6 @@ async function runServer() {
     })
 
     let isSpecial = false
-
-    server.on("listening", () => {
-        console.log("LISTENING:", server.address())
-    })
     server.listen(isSpecial ? 8787 : 0, isSpecial ? "127.0.0.1" : "0.0.0.0", async () => {
         port = server.address().port
         if (isSpecial) {
@@ -357,9 +397,10 @@ async function runServer() {
             startTunnel()
         }
     })
-    function startTunnel(provider = "cloudflared") {
+    function startTunnel(provider = "bore") {
         let gotUrl = false
         let isChecking = false
+        global.connected = false
 
         if (tunnelProcess) {return}
         if (!port) {return}
@@ -387,12 +428,14 @@ async function runServer() {
                 if (provider === "bore") {
                     void checkTunnel()
                     await shareUrl()
+                    global.connected = true
                 }
                 if (provider === "cloudflared" && !isChecking) {
                     isChecking = true
                     await sleep(20_000)
                     void checkTunnel()
                     void shareUrl()
+                    global.connected = true
                 }
             }
         }
@@ -494,6 +537,7 @@ async function checkTunnel() {
 }
 
 let checking = false
+let prefixIndex = 0
 async function checkAllNodes(once=false) {
     if (checking) {return}
     checking = true
@@ -519,7 +563,25 @@ async function checkAllNodes(once=false) {
                 void shareUrl()
                 void getNodes()
             }
-            void require("./sync.js").sync(1, false)
+            let localHash = await get(`http://127.0.0.1:${port}/`, "hash")
+            let otherHash = await get(global.allNodes[Math.floor(Math.random()*global.allNodes.length)], "hash")
+            if (localHash?.hash && otherHash?.hash) {
+                if (localHash.hash === otherHash.hash) {
+                    require("./sync.js").updateLastSync()
+                }
+                else {
+                    if (global.domains.length < 4096) {
+                        void require("./sync.js").sync([""], false)
+                    }
+                    else {
+                        const chars = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s',
+                            't','u','v','w','x','y','z','-','.','1','2','3','4','5','6','7','8','9','0']
+                        let picked = chars[prefixIndex % chars.length]
+                        prefixIndex++
+                        void require("./sync.js").sync([picked], false)
+                    }
+                }
+            }
 
             await global.sleep(30000)
         }

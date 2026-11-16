@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mesh Web v1.3.7</title>
+    <title>Mesh Web v2.0.0</title>
     <link rel="stylesheet" href="main.css">
     <style>
         input:focus {
@@ -217,6 +217,9 @@
 			urlInput.focus()
             urlInput.select()
 		}
+		else if (key === "d") {
+			newTab(activeTab.url)
+        }
 		else if (key >= "1" && key <= "8") {
 			let i = Number(key)-1
             if (tabs[i]) {
@@ -503,8 +506,13 @@
 			void newTab()
             return
         }
+		let addSyncTab = true
 		for (let url of savedTabs) {
 			await newTab(url)
+            if (url === "mesh://sync") {addSyncTab = false}
+        }
+		if (addSyncTab) {
+			await newTab("mesh://sync")
         }
     }
 
@@ -548,7 +556,7 @@
 			void loadTabs()
 		}
 		else {
-			void newTab()
+			void newTab("mesh://sync")
 		}
 		displayBookmarks(await getBookmarks())
     }

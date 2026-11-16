@@ -18,14 +18,10 @@ async function createNewDomain(domain, endpoint, nonce) {
 
     let signature = crypto.sign(null, Buffer.from(data), global.privateKey).toString("hex")
 
-
-    await fetch(`http://127.0.0.1:${network.getPort()}/domain`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-            domain: [domain, global.publicKey, nonce, endpoint, seqNumber, signature]
-        })
-    })
+    let d = [domain, global.publicKey, nonce, endpoint, seqNumber, signature]
+    if (global.newDomain(d)) {
+        void network.broadcastDomain(d, 25)
+    }
 }
 function newKeys(s) {
     s = crypto.createHash("sha256").update(s).digest()

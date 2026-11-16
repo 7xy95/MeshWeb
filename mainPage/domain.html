@@ -148,7 +148,7 @@
 
         infoText.innerHTML = `
             Domain: ${domain[0]}<br>
-            Endpoint: ${domain[3]}<br>
+            Endpoint: ${domain[3] === "" ? "None" : domain[3]}<br>
             Difficulty: ${difficulty.toFixed(2)}<br>
             Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}</span>
             <br>${isMining ? `Est time to mine: ${getTime(estTime)}` : "&nbsp;"}
@@ -187,10 +187,12 @@
 	async function changeEndpoint() {
 		let domain = name
 		let endpoint = document.getElementById("newEndpoint").value.trim()
-		if (endpoint === "" || document.getElementById("seed").value.trim() === "") {return}
-		if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://") && !endpoint.startsWith("mesh://")) {
-			endpoint = "https://" + endpoint
-		}
+		if (document.getElementById("seed").value.trim() === "") {return}
+		if (endpoint !== "") {
+			if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://") && !endpoint.startsWith("mesh://")) {
+				endpoint = "https://" + endpoint
+			}
+        }
 		run(`global.updateDomain(${JSON.stringify(domain)}, ${JSON.stringify(endpoint)}, ${JSON.stringify(document.getElementById("seed").value.trim())})`)
     }
 	async function updatePrivateKey(value) {
@@ -252,5 +254,15 @@
 			`
         }
     })
+    setInterval(async () => {
+		if (name === (await get('global.getData()')).domain) {
+			document.getElementById("mineBtn").innerText = "Stop Mining"
+            lookupDomain(name)
+        }
+		else {
+			document.getElementById("mineBtn").innerText = "Start Mining"
+            lookupDomain(name)
+        }
+    }, 500)
 </script>
 </html>

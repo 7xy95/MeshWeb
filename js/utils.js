@@ -42,7 +42,9 @@ function domainToEndpoint(domain, getWarning=false) {
 
         let d = global.domains.find(item => item[0] === url.hostname)
 
-        if (!d) {return getWarning ? [domain, false, null] : domain}
+        if (!d) {
+            return getWarning ? [domain, false, null] : domain
+        }
 
         if (!storage.getDomainKeys()[d[0]]) {
             storage.addDomainKey(d[0], d[1])
@@ -54,7 +56,9 @@ function domainToEndpoint(domain, getWarning=false) {
         else {
             w = true
         }
-
+        if (d[3] === "") {
+            return ""
+        }
         let endpoint = new URL(d[3])
 
         endpoint.pathname = endpoint.pathname.replace(/\/$/, "") + url.pathname

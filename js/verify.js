@@ -8,7 +8,7 @@ function sha256(data) {
 }
 
 function validDomain(value) {
-    return /^[A-Za-z0-9.-]+$/.test(value) && !value.includes("..")
+    return /^[a-z0-9.-]+$/.test(value) && !value.includes("..")
 }
 
 function verifyDomain(domain, alreadyRegistered, registrationIndex=null, sequenceNumberMaxIncrease=65536n) {

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Network Sync Progress</title>
+    <link rel="icon" href="../assets/icon.png">
+    <link rel="stylesheet" href="../main.css">
+    <style>
+        a {
+            color: dodgerblue;
+        }
+    </style>
+</head>
+<body>
+    <p id="info" style="margin: 128px; font-size: 20px"></p>
+</body>
+<script>
+    let domainCount = 0
+    let nodeCount = 0
+    let connected = false
+    async function setData() {
+		let time = Math.ceil(0.001*(Date.now() - await window.mesh.get('require("./js/sync.js").getLastSync()')))
+		document.getElementById("info").innerHTML = `
+            <div style="font-size: 32px">Network Status</div><br>
+            This device is currently ${(connected && nodeCount !== 0) ? "connected" : "establishing a connection"} to the network<br>
+            Total known domain count: ${domainCount}<br>
+            Last sync ${time < 256 ? `${time}s` : "Too long"} ago<br><br>
+            <a href="search.html">Go back to New Tab</a>
+        `
+    }
+	async function getConnectivity() {
+        connected = await window.mesh.get("connected")
+        console.log(connected)
+	}
+	async function getDomainCount() {
+		domainCount = (await window.mesh.get("global.domains")).length
+		nodeCount = (await window.mesh.get("global.allNodes")).length
+    }
+	async function setUrl(url) {
+		window.mesh.setUrl(url)
+	}
+    async function load() {
+		await getDomainCount()
+		await getConnectivity()
+		void setData()
+    }
+	load()
+	setInterval(() => {
+		void load()
+	}, 500)
+</script>
+</html>
