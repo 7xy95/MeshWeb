@@ -8,28 +8,6 @@ async function sync(start=[""], useSaved=true) {
         return global.allNodes[Math.floor(Math.random() * (global.allNodes.length))]
     }
     async function getDomains(node, start) {
-        // let controller = new AbortController()
-        // let timer = setTimeout(() => controller.abort(), 3000)
-        // try {
-        //     let u = node + `domains?chars=[""]`
-        //     let response = await fetch(u, {
-        //         method: "GET",
-        //         headers: {"Content-Type": "application/json"},
-        //         signal: controller.signal
-        //     })
-        //     if (!response.ok) {
-        //         return [false, true]
-        //     }
-        //
-        //     response = await response.json()
-        //     return [true, response.domains]
-        // }
-        // catch (error) {
-        //     return [false, false]
-        // }
-        // finally {
-        //     clearTimeout(timer)
-        // }
         let result = await require("./networking").get(node, `domains?chars=` + encodeURIComponent(JSON.stringify([start])), 3, true)
         if (result === null) {return [false, false]}
         if (result === 422) {return [false, true]}
@@ -81,7 +59,8 @@ async function sync(start=[""], useSaved=true) {
             }
         }
     }
-    if (useSaved) {storage.saveDomains()}
+    if (useSaved) {
+        storage.saveDomains()}
 }
 function getLastSync() {
     return lastSync

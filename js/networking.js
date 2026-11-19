@@ -192,6 +192,11 @@ async function runServer() {
         maxHeaderSize: 2048
     }, async (req, res) => {
         try {
+            let version = 1
+            if (req.url.startsWith("/v2/")) {
+                version = 2
+                req.url = req.url.slice(3)
+            }
             if (rateLimit(req)) {
                 sendJSON(res, 429, {
                     ok: false,
@@ -220,9 +225,12 @@ async function runServer() {
             if (req.method === "GET" && req.url === "/routes") {
                 sendJSON(res, 200, {
                     ok: true,
-                    routes: JSON.stringify(["/peers", "/online", "/hash", "/hash?chars",
-                        "/routes", "/domains", "/domains?chars", "/domains?name", "/domains?key"])
+                    routes: JSON.stringify(["/peers", "/online", "/routes",
+                        "/hash", "/hash?chars", "/v2/hash", "/v2/hash?chars",
+                        "/domains", "/domains?chars", "/domains?name", "/domains?key",
+                        "/v2/domains", "/v2/domains?chars", "/v2/domains?name", "/v2/domains?key"])
                 })
+                return
             }
             if (req.method === "GET" && req.url === "/peers") {
                 sendJSON(res, 200, {
@@ -239,9 +247,18 @@ async function runServer() {
             }
             if (req.method === "GET" && req.url === "/hash") {
                 global.sortDomains()
+                let domains = []
+                if (version >= 2) {
+                    for (let domain of global.domains) {
+                        domains.push(require("./optimise").optimiseDomain(domain))
+                    }
+                }
+                else {
+                    domains = global.domains
+                }
                 sendJSON(res, 200, {
                     ok: true,
-                    hash: require("crypto").createHash("sha256").update(JSON.stringify(global.domains)).digest("hex")
+                    hash: require("crypto").createHash("sha256").update(JSON.stringify(domains)).digest("hex")
                 })
                 return
             }
@@ -249,9 +266,18 @@ async function runServer() {
                 global.sortDomains()
                 let matches = manageChars(req)
                 if (matches === null) return
+                let domains = []
+                if (version >= 2) {
+                    for (let domain of matches) {
+                        domains.push(require("./optimise").optimiseDomain(domain))
+                    }
+                }
+                else {
+                    domains = matches
+                }
                 sendJSON(res, 200, {
                     ok: true,
-                    hash: require("crypto").createHash("sha256").update(JSON.stringify(matches)).digest("hex")
+                    hash: require("crypto").createHash("sha256").update(JSON.stringify(domains)).digest("hex")
                 })
                 return
             }
@@ -272,13 +298,21 @@ async function runServer() {
                         matches: matches.length,
                         limit: 2048
                     })
+                    return
+                }
+                let domains = []
+                if (version >= 2) {
+                    for (let domain of matches) {
+                        domains.push(require("./optimise").optimiseDomain(domain))
+                    }
                 }
                 else {
-                    sendJSON(res, 200, {
-                        ok: true,
-                        domains: matches
-                    })
+                    domains = matches
                 }
+                sendJSON(res, 200, {
+                    ok: true,
+                    domains: domains
+                })
                 return
             }
             if (req.method === "GET" && req.url.startsWith("/domains?name")) {
@@ -290,22 +324,39 @@ async function runServer() {
                         ok: false,
                         error: "Domain Not Found"
                     })
+                    return
                 }
-                else {
-                    sendJSON(res, 200, {
-                        ok: true,
-                        domain: domain
-                    })
+                if (version >= 2) {
+                    domain = require("./optimise").optimiseDomain(domain)
                 }
+                sendJSON(res, 200, {
+                    ok: true,
+                    domain: domain
+                })
                 return
             }
             if (req.method === "GET" && req.url.startsWith("/domains?key")) {
                 let u = new URL(req.url, "http://localhost")
                 let key = u.searchParams.get("key")
+                if (version >= 2) {
+                    key = require("node:crypto").createPublicKey({
+                        key: {kty: "OKP", crv: "Ed25519", x: key},
+                        format: "jwk"
+                    }).export({format: "pem", type: "spki"})
+                }
                 let domains = global.domains.filter((d) => d[1] === key)
+                let d = []
+                if (version >= 2) {
+                    for (let domain of domains) {
+                        d.push(require("./optimise").optimiseDomain(domain))
+                    }
+                }
+                else {
+                    d = domains
+                }
                 sendJSON(res, 200, {
                     ok: true,
-                    domains: domains
+                    domains: d
                 })
                 return
             }

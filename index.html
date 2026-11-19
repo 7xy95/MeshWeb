@@ -201,9 +201,12 @@
     ipcRenderer.on("shortcut", (event, input) => {
 		if (input.type !== "keyDown" || input.isAutoRepeat) {return}
         if (!(input.control || input.meta)) {return}
-
 		let key = input.key.toLowerCase()
-        if (key === "t") {
+	    if (key === "t" && input.shift) {
+			newTab(closed[closed.length-1])
+			closed.pop()
+		}
+        else if (key === "t") {
 			window.focus()
 			newTab()
         }
@@ -291,6 +294,7 @@
 	let urlInput = document.getElementById("urlInput")
 	let page = null
     let draggedTab = null
+    let closed = []
 
     async function newTab(url = "mesh://search", useTor = false) {
 		let webview = document.createElement("webview")
@@ -348,10 +352,12 @@
         tabIcon.addEventListener("dragend", () => {
 			draggedTab = null
         })
+
 		closeBtn.addEventListener("click", event => {
 			event.stopPropagation()
 			deleteTab(tab)
 		})
+
         webview.addEventListener("page-favicon-updated", async event => {
 			if (!event.favicons.length ) {return}
 			let faviconUrl = event.favicons[0]
@@ -377,6 +383,7 @@
 			title.innerText = event.title || "New Tab"
 		})
 		webview.addEventListener("did-navigate", async (event) => {
+			if (!tab.mesh) {tab.url = event.url}
 			if (tab !== activeTab) { return }
 			await updateUrl(event.url)
 
@@ -392,8 +399,9 @@
 			}
 		})
 		webview.addEventListener("did-navigate-in-page", (event) => {
-			if (tab !== activeTab) { return }
-			if (!event.isMainFrame) { return }
+			if (!tab.mesh) {tab.url = event.url}
+			if (tab !== activeTab) {return}
+			if (!event.isMainFrame) {return}
 			updateUrl(event.url)
 		})
         webview.addEventListener("will-navigate", (event) => {
@@ -476,6 +484,7 @@
         updateUrl(page.src)
     }
 	async function deleteTab(tab) {
+		closed.push(tab.url)
 		let index = tabs.indexOf(tab)
         if (index === -1) {return}
 
@@ -674,6 +683,9 @@
         if (isMeshUrl(url)) {
 			activeTab.meshDomain = url
             let [domain, warning, key] = await get(`global.domainToEndpoint(${JSON.stringify(url)}, true)`)
+			if (domain === undefined) {
+				setMainPageUrl(`error?name=${encodeURIComponent(url)}&reason=NO_ENDPOINT`)
+			}
             if (warning) {
 				setMainPageUrl(`domainChanged?name=${encodeURIComponent(domain)}&url=${encodeURIComponent(url)}&key=${encodeURIComponent(key)}`)
                 return

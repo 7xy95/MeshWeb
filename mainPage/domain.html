@@ -12,14 +12,12 @@
         .webPage {
             width: 100%;
             height: 100%;
-            padding: 64px;
+            padding-left: 64px;
+            margin-top: 16px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
-        }
-        .header {
-            font-size: 24px;
-            margin: 0;
+            gap: 8px;
         }
         .text {
             font-size: 20px;
@@ -36,40 +34,52 @@
             height: auto;
         }
         #changeStatus {
-            transform: translateY(-100px);
+            padding-left: 64px;
+
+        }
+        .hideSeed {
+            display: flex;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+
+            position: relative;
+            left: calc(30% + 20px);
+            top: -48px;
+        }
+        #newEndpointBtn {
+            margin-top: 8px;
+            padding-left: 0;
+            padding-right: 0;
         }
     </style>
 </head>
 <body>
-<div id="homePage" class="webPage" style="height: auto; padding-bottom: 0">
-    <p class="header" style="margin-bottom: 8px">Enter domain:</p>
-    <input id="specificDomain" placeholder="Enter a .mesh domain" autofocus>
-</div>
-<div id="domainSearch" class="webPage">
-    <p class="header" style="margin-top: 0">Domain Info:</p>
-    <p class="text" id="domainInfo"></p>
-    <br>
-
-    <label style="display: flex; align-items: center; margin: 0; padding: 0">
-        <p class="text">Hide Seeds: </p>
-        <input type="checkbox" onchange="hide(this.checked)" style="border-radius: 0; border: none">
-    </label>
-
-    <p class="header">Mine Domain:</p>
-    <p class="text">Enter endpoint:</p>
-    <input id="endpoint">
-    <p class="text">Seed:</p>
-    <input id="address" oninput="updatePrivateKey(this.value)">
-    <button class="btn" id="mineBtn" onclick="toggleMining()" style="width: 150px; margin-bottom: 50px">Start Mining</button>
-
-    <p class="header">Change Endpoint (requires seed):</p>
-    <p class="text">New Endpoint:</p>
-    <input id="newEndpoint">
-    <p class="text">Seed:</p>
-    <input id="seed">
-    <button class="btn" id="newEndpointBtn" onclick="changeEndpoint()" style="width: 150px; margin-bottom: 100px">Change</button>
-    <p class="text" id="changeStatus"></p>
-</div>
+    <div id="homePage" class="webPage" style="margin-top: 48px">
+        <label for="specificDomain">Domain</label>
+        <input id="specificDomain" placeholder="Enter a .mesh domain" autofocus>
+    </div>
+    <div class="webPage">
+        <label for="seed">Seed</label>
+        <input id="seed" oninput="updatePrivateKey(this.value)">
+        <label class="hideSeed">
+            <input type="checkbox" onchange="hide(this.checked)" style="border-radius: 0; border: none">
+            <p class="text">Hide</p>
+        </label>
+    </div>
+    <div class="webPage" style="position: relative; top: -60px;">
+        <label for="endpoint">Endpoint</label>
+        <input id="endpoint">
+    </div>
+    <div style="position: relative; top: -50px">
+        <p class="text" id="changeStatus" style="margin-bottom: 0; min-height: 1em"></p>
+        <p class="text" id="domainInfo" style="margin-left: 64px; margin-top: 0"></p>
+        <div id="domainSearch" class="webPage">
+            <button class="btn" id="mineBtn" onclick="toggleMining()" style="width: 150px">Start Mining</button>
+            <button class="btn" id="newEndpointBtn" onclick="changeEndpoint()" style="width: 150px">Change Endpoint</button>
+        </div>
+        <p class="text" id="endpointChanged" style="margin-left: 64px; margin-top: 8px"></p>
+    </div>
 </body>
 <script>
 	let params = new URLSearchParams(location.search)
@@ -87,14 +97,19 @@
     function run(code) {
         window.mesh.run(code)
     }
-	function getHashrate(hashrate) {
-		let names = ["H", "KH", "MH", "GH", "TH", "PH"]
+	function getHashrate(hashrate, includeHashrate=true) {
+		let names = ["H", "KH", "MH", "GH", "TH", "PH", "EH", "ZH", "YN"]
         let i = 0
         while (hashrate > 1000) {
 			i++
             hashrate = hashrate/1000
         }
-		return `Hashrate: ${hashrate.toPrecision(4)}${names[i]}/s`
+		if (includeHashrate) {
+			return `Hashrate: ${hashrate.toPrecision(4)}${names[i]}/s`
+        }
+		else {
+			return `${hashrate.toPrecision(4)}${names[i]}`
+        }
     }
     async function get(code) {
 		return await window.mesh.get(code)
@@ -135,7 +150,7 @@
             infoText.innerHTML = `
                 Domain: ${name}<br>
                 Endpoint: <span style="color: red">Unregistered</span><br>
-                Difficulty: 31<br>
+                Difficulty: 31 bits (${getHashrate(2**31, false)})<br>
                 Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}</span>
                 <br>${isMining ? `Est time to mine: ${getTime(estTime)}` : "&nbsp;"}
                 <br>${isMining ? `${getHashrate(hashrate)}` : "&nbsp;"}
@@ -148,12 +163,13 @@
 
         infoText.innerHTML = `
             Domain: ${domain[0]}<br>
-            Endpoint: ${domain[3] === "" ? "None" : domain[3]}<br>
-            Difficulty: ${difficulty.toFixed(2)}<br>
+            Endpoint: <span id="currentEndpoint"></span><br>
+            Difficulty: ${difficulty.toFixed(2)} bits (${getHashrate(2**difficulty, false)})<br>
             Mining: <span style="color: ${color}">${isMining ? "On" : "Off"}</span>
             <br>${isMining ? `Est time to mine: ${getTime(estTime)}` : "&nbsp;"}
             <br>${isMining ? `${getHashrate(hashrate)}` : "&nbsp;"}
         `
+        document.getElementById("currentEndpoint").textContent = domain[3] === "" ? "None" : domain[3]
     }
 
 	let domainSearch = document.getElementById("specificDomain")
@@ -171,7 +187,7 @@
 		}
 		else {
 			let endpoint = document.getElementById("endpoint").value.trim()
-			if (endpoint === "" || document.getElementById("address").value.trim() === "") {return}
+			if (document.getElementById("seed").value.trim() === "") {return}
 			document.getElementById("mineBtn").innerText = "Stop Mining"
 			if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://")) {
 				endpoint = "https://" + endpoint
@@ -184,16 +200,21 @@
 			run(`global.mine(${JSON.stringify(domain)}, ${JSON.stringify(endpoint)})`)
 		}
 	}
-	async function changeEndpoint() {
+    async function changeEndpoint() {
 		let domain = name
-		let endpoint = document.getElementById("newEndpoint").value.trim()
+		let endpoint = document.getElementById("endpoint").value.trim()
 		if (document.getElementById("seed").value.trim() === "") {return}
+		lookupDomain(name)
 		if (endpoint !== "") {
 			if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://") && !endpoint.startsWith("mesh://")) {
 				endpoint = "https://" + endpoint
 			}
         }
 		run(`global.updateDomain(${JSON.stringify(domain)}, ${JSON.stringify(endpoint)}, ${JSON.stringify(document.getElementById("seed").value.trim())})`)
+        let changed = document.getElementById("endpointChanged")
+        changed.innerText = "Endpoint Updated!"
+        await new Promise(resolve => setTimeout(resolve, 2000))
+		changed.innerText = ""
     }
 	async function updatePrivateKey(value) {
 		run(`global.newKeys(${JSON.stringify(value)})`)
@@ -245,12 +266,12 @@
 		let currentKey = (await get('global.domains')).find(item => item[0] === name)[1]
         if (pubKey === currentKey) {
 			document.getElementById("changeStatus").innerHTML = `
-			    <span style="color: green">Seeds match</span>
+			    <span style="color: green">Seed matches current registration</span>
 			`
         }
 		else {
 			document.getElementById("changeStatus").innerHTML = `
-			    <span style="color: red">Invalid seed</span>
+			    <span style="color: red">Seed does not match current registration</span>
 			`
         }
     })

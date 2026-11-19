@@ -9,36 +9,37 @@
         a {
             color: dodgerblue;
         }
+        #tryAgain {
+            width: 150px;
+            margin-left: 128px;
+            position: relative;
+            top: -130px;
+        }
     </style>
 </head>
 <body>
     <p id="info" style="margin: 128px; font-size: 20px"></p>
+    <button class="btn" id="tryAgain" onclick="tryAgain()">Try Again</button>
 </body>
 <script>
 	let params = new URLSearchParams(location.search)
     let name = params.get("name")
+    let originalName = name
     let reason = params.get("reason")
 
     if (name.startsWith("https://")) {name = name.replace("https://", "")}
 
     document.getElementById("info").innerHTML = `
         <div style="font-size: 32px">This site can't be reached</div><br><br>
-        The endpoint '${name}' could not be reached.<br><br>
+        The ${reason === "NO_ENDPOINT" ? "domain" : "endpoint"} '${name}' could not be reached.<br><br>
         <div style="font-size: 16px">${reason}</div>
     `
-
-	async function isRegistered(name) {
-		let domains = await window.mesh.get("global.domains")
-		return domains.some(domain => domain[0] === name)
-	}
 	async function setUrl(url) {
 		window.mesh.setUrl(url)
 	}
+    function tryAgain() {
+		setUrl(originalName)
+    }
 
-	setInterval(async () => {
-		if (await isRegistered(name.split("/")[0])) {
-			setUrl(name)
-		}
-    }, 500)
 </script>
 </html>

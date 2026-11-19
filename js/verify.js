@@ -8,7 +8,7 @@ function sha256(data) {
 }
 
 function validDomain(value) {
-    return /^[a-z0-9.-]+$/.test(value) && !value.includes("..")
+    return /^[a-z0-9.-]+$/.test(value) && !value.includes("..") && !value.startsWith(".")
 }
 
 function verifyDomain(domain, alreadyRegistered, registrationIndex=null, sequenceNumberMaxIncrease=65536n) {
@@ -17,6 +17,7 @@ function verifyDomain(domain, alreadyRegistered, registrationIndex=null, sequenc
         if (domain.length !== 6) {return false}
         if (domain[0].length > 64 || domain[3].length > 192) {return false}
         if (!domain[0].endsWith(".mesh")) {return false}
+        if (domain[0].length <= 5) {return false}
 
         let hash = sha256(domain[0] + domain[1] + domain[2])
         let target = 1n << BigInt(256 - MIN_DIFFICULTY)

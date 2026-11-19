@@ -1,4 +1,5 @@
 const path = require("path")
+// const optimise = require("optimise.js")
 const fs = require("fs")
 
 const dataDir = process.env.userPath
@@ -14,14 +15,23 @@ function getDomains() {
 		if (!fs.existsSync(session)) {
 			fs.writeFileSync(session, "[]")
 		}
-		return JSON.parse(fs.readFileSync(session, "utf-8"))
+		let domains = JSON.parse(fs.readFileSync(session, "utf-8"))
+		let result = []
+		for (let domain of domains) {
+			result.push(require("./optimise.js").revertDomain(domain))
+		}
+		return result
 	}
 	catch {
 		return []
 	}
 }
 function saveDomains() {
-	fs.writeFileSync(session, JSON.stringify(global.domains))
+	let n = []
+	for (let domain of global.domains) {
+		n.push(require("./optimise.js").optimiseDomain(domain))
+	}
+	fs.writeFileSync(session, JSON.stringify(n))
 }
 
 function getBookmarks() {
