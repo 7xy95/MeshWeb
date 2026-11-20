@@ -121,7 +121,19 @@
 	async function updateEstimate() {
 		if (!(document.getElementById("mineBtn").innerText === "Stop Mining")) {return}
         let lastT = (await get('global.getData()')).lastT
+        if (lastT === 0 || lastT === null) {lastT = 1}
         hashrate = Math.floor(1000/lastT * 50_000_000)
+    }
+
+	function normalise(domain) {
+		let normalised = ""
+		for (let i=0; i<domain.length; i++) {
+			let char = domain.charAt(i)
+			if (/^[0-9a-z]$/.test(char) || char === "-" || char === ".") {
+				normalised += char
+			}
+		}
+		return normalised
     }
 
     async function lookupDomain(domain, editParams=false) {
@@ -131,6 +143,9 @@
 			domain += ".mesh"
 		}
 		domain = domain.toLowerCase().replaceAll(" ", "")
+
+		domain = normalise(domain)
+        console.log(domain)
 		if (editParams) {
 			document.getElementById("specificDomain").value = domain
 
@@ -192,6 +207,7 @@
 			if (!endpoint.startsWith("https://") && !endpoint.startsWith("http://")) {
 				endpoint = "https://" + endpoint
 			}
+			if (endpoint === "https://") {endpoint = ""}
 
 			let domain = name
 			if (!domain.endsWith(".mesh")) {
